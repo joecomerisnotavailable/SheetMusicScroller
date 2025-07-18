@@ -86,7 +86,8 @@ struct SheetMusicScrollerView: View {
                 height: 180,
                 currentYPosition: currentSquiggleYPosition,
                 scrollOffset: scrollOffset,
-                squiggleX: squiggleX
+                squiggleX: squiggleX,
+                tipColor: squiggleColor
             )
         }
         .frame(height: 200)
@@ -161,10 +162,27 @@ struct SheetMusicScrollerView: View {
         return staffCenter
     }
     
-    /// Get the current squiggle tip color
+    /// Get the current squiggle tip color based on pitch and musical context
     private var squiggleColor: Color {
-        // Color could vary based on pitch, tempo, or other musical factors
-        // For now, using a simple red-to-orange gradient effect
+        // Color varies based on pitch range and musical expression
+        if let activeNote = activeNotes.first {
+            let pitch = activeNote.position
+            
+            // Color mapping based on pitch height
+            if pitch < -2.5 {
+                return .purple  // Very high notes
+            } else if pitch < -1.5 {
+                return .blue    // High notes
+            } else if pitch < -0.5 {
+                return .green   // Medium-high notes
+            } else if pitch < 0.5 {
+                return .orange  // Medium notes
+            } else {
+                return .red     // Lower notes
+            }
+        }
+        
+        // Default red when no active notes
         return .red
     }
     

@@ -6,15 +6,17 @@ struct SquiggleView: View {
     let currentYPosition: CGFloat
     let scrollOffset: CGFloat
     let squiggleX: CGFloat
+    let tipColor: Color
     
     @State private var historyPoints: [CGPoint] = []
     @State private var lastScrollOffset: CGFloat = 0
     
-    init(height: CGFloat = 200, currentYPosition: CGFloat = 0, scrollOffset: CGFloat = 0, squiggleX: CGFloat = 0) {
+    init(height: CGFloat = 200, currentYPosition: CGFloat = 0, scrollOffset: CGFloat = 0, squiggleX: CGFloat = 0, tipColor: Color = .red) {
         self.height = height
         self.currentYPosition = currentYPosition
         self.scrollOffset = scrollOffset
         self.squiggleX = squiggleX
+        self.tipColor = tipColor
     }
     
     var body: some View {
@@ -29,7 +31,7 @@ struct SquiggleView: View {
                 }
                 .stroke(
                     LinearGradient(
-                        gradient: Gradient(colors: [.red.opacity(0.3), .orange.opacity(0.6), .red]),
+                        gradient: Gradient(colors: [tipColor.opacity(0.3), tipColor.opacity(0.6), tipColor]),
                         startPoint: .leading,
                         endPoint: .trailing
                     ),
@@ -41,7 +43,7 @@ struct SquiggleView: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        gradient: Gradient(colors: [.red, .orange]),
+                        gradient: Gradient(colors: [tipColor, tipColor.opacity(0.7)]),
                         center: .center,
                         startRadius: 0,
                         endRadius: 4
@@ -49,7 +51,7 @@ struct SquiggleView: View {
                 )
                 .frame(width: 8, height: 8)
                 .position(x: squiggleX, y: currentYPosition)
-                .shadow(color: .red.opacity(0.7), radius: 3, x: 0, y: 0)
+                .shadow(color: tipColor.opacity(0.7), radius: 3, x: 0, y: 0)
         }
         .onChange(of: scrollOffset) { _, newScrollOffset in
             updateHistoryPoints(newScrollOffset: newScrollOffset)
@@ -94,16 +96,16 @@ struct SquiggleView: View {
     }
     
     /// Get the current tip color for note coloration
-    var tipColor: Color {
-        return .red
+    var currentTipColor: Color {
+        return tipColor
     }
 }
 
 #Preview {
     HStack(spacing: 30) {
-        SquiggleView(height: 150, currentYPosition: 75, scrollOffset: 0, squiggleX: 80)
-        SquiggleView(height: 200, currentYPosition: 100, scrollOffset: 50, squiggleX: 80)
-        SquiggleView(height: 100, currentYPosition: 50, scrollOffset: 100, squiggleX: 80)
+        SquiggleView(height: 150, currentYPosition: 75, scrollOffset: 0, squiggleX: 80, tipColor: .red)
+        SquiggleView(height: 200, currentYPosition: 100, scrollOffset: 50, squiggleX: 80, tipColor: .blue)
+        SquiggleView(height: 100, currentYPosition: 50, scrollOffset: 100, squiggleX: 80, tipColor: .green)
     }
     .padding()
     .background(Color.gray.opacity(0.1))
