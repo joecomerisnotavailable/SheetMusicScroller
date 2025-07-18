@@ -1,65 +1,111 @@
 import SwiftUI
 
-/// View that renders a cursor squiggle to indicate current playback position
+/// View that renders a historical trail squiggle showing the marker tip's path over time
 struct SquiggleView: View {
     let height: CGFloat
-    let animated: Bool
+    let currentYPosition: CGFloat
+    let scrollOffset: CGFloat
+    let squiggleX: CGFloat
+    let tipColor: Color
     
-    @State private var animationOffset: CGFloat = 0
+    @State private var historyPoints: [CGPoint] = []
+    @State private var lastScrollOffset: CGFloat = 0
     
-    init(height: CGFloat = 200, animated: Bool = true) {
+    init(height: CGFloat = 200, currentYPosition: CGFloat = 0, scrollOffset: CGFloat = 0, squiggleX: CGFloat = 0, tipColor: Color = .red) {
         self.height = height
-        self.animated = animated
+        self.currentYPosition = currentYPosition
+        self.scrollOffset = scrollOffset
+        self.squiggleX = squiggleX
+        self.tipColor = tipColor
     }
     
     var body: some View {
-        Path { path in
-            let width: CGFloat = 8
-            let segments = 8
-            let segmentHeight = height / CGFloat(segments)
-            
-            // Start at top center
-            path.move(to: CGPoint(x: width/2, y: 0))
-            
-            // Create a wavy line with alternating curves
-            for i in 0..<segments {
-                let y = CGFloat(i + 1) * segmentHeight
-                let controlX = (i % 2 == 0) ? width : 0
-                let controlY = y - segmentHeight/2
-                let endX = width/2
-                
-                path.addQuadCurve(
-                    to: CGPoint(x: endX, y: y),
-                    control: CGPoint(x: controlX, y: controlY)
+        ZStack {
+            // Draw the historical trail
+            if historyPoints.count > 1 {
+                Path { path in
+                    path.move(to: historyPoints[0])
+                    for point in historyPoints.dropFirst() {
+                        path.addLine(to: point)
+                    }
+                }
+                .stroke(
+                    LinearGradient(
+                        gradient: Gradient(colors: [tipColor.opacity(0.3), tipColor.opacity(0.6), tipColor]),
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
                 )
             }
+            
+            // Draw the current tip
+            Circle()
+                .fill(
+                    RadialGradient(
+                        gradient: Gradient(colors: [tipColor, tipColor.opacity(0.7)]),
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 4
+                    )
+                )
+                .frame(width: 8, height: 8)
+                .position(x: squiggleX, y: currentYPosition)
+                .shadow(color: tipColor.opacity(0.7), radius: 3, x: 0, y: 0)
         }
-        .stroke(
-            LinearGradient(
-                gradient: Gradient(colors: [.red, .orange, .red]),
-                startPoint: .top,
-                endPoint: .bottom
-            ),
-            style: StrokeStyle(lineWidth: 3, lineCap: .round)
-        )
-        .frame(width: 8, height: height)
-        .offset(x: animationOffset)
+        .onChange(of: scrollOffset) { _, newScrollOffset in
+            updateHistoryPoints(newScrollOffset: newScrollOffset)
+        }
+        .onChange(of: currentYPosition) { _, _ in
+            updateHistoryPoints(newScrollOffset: scrollOffset)
+        }
         .onAppear {
-            if animated {
-                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                    animationOffset = 2
-                }
-            }
+            // Initialize with current position
+            updateHistoryPoints(newScrollOffset: scrollOffset)
         }
-        .shadow(color: .red.opacity(0.5), radius: 2, x: 0, y: 0)
+    }
+    
+    private func updateHistoryPoints(newScrollOffset: CGFloat) {
+        let scrollDelta = newScrollOffset - lastScrollOffset
+        
+        // Move existing points left by the scroll delta
+        historyPoints = historyPoints.compactMap { point in
+            let newX = point.x - scrollDelta
+            return newX >= -10 ? CGPoint(x: newX, y: point.y) : nil // Remove points that have scrolled off screen
+        }
+        
+        // Add current position as the tip
+        let currentPoint = CGPoint(x: squiggleX, y: currentYPosition)
+        
+        // Only add a new point if the position has changed meaningfully
+        if historyPoints.isEmpty || 
+           abs(historyPoints.last!.y - currentYPosition) > 2 || 
+           scrollDelta > 1 {
+            historyPoints.append(currentPoint)
+        } else {
+            // Update the last point to current position
+            historyPoints[historyPoints.count - 1] = currentPoint
+        }
+        
+        // Limit history to reasonable length for performance
+        if historyPoints.count > 200 {
+            historyPoints.removeFirst(historyPoints.count - 200)
+        }
+        
+        lastScrollOffset = newScrollOffset
+    }
+    
+    /// Get the current tip color for note coloration
+    var currentTipColor: Color {
+        return tipColor
     }
 }
 
 #Preview {
     HStack(spacing: 30) {
-        SquiggleView(height: 150, animated: false)
-        SquiggleView(height: 200, animated: true)
-        SquiggleView(height: 100, animated: false)
+        SquiggleView(height: 150, currentYPosition: 75, scrollOffset: 0, squiggleX: 80, tipColor: .red)
+        SquiggleView(height: 200, currentYPosition: 100, scrollOffset: 50, squiggleX: 80, tipColor: .blue)
+        SquiggleView(height: 100, currentYPosition: 50, scrollOffset: 100, squiggleX: 80, tipColor: .green)
     }
     .padding()
     .background(Color.gray.opacity(0.1))
