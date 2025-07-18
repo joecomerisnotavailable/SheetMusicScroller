@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Main view that orchestrates the scrolling sheet music display
+/// Main view that orchestrates the scrolling sheet music display with marker squiggle
 struct SheetMusicScrollerView: View {
     let sheetMusic: SheetMusic
     
@@ -11,6 +11,7 @@ struct SheetMusicScrollerView: View {
     
     private let noteSpacing: CGFloat = 60
     private let scrollSpeed: CGFloat = 30 // pixels per second
+    private let squiggleX: CGFloat = 100   // Fixed x position of squiggle (about 1/8 from left edge)
     
     init(sheetMusic: SheetMusic) {
         self.sheetMusic = sheetMusic
@@ -70,21 +71,23 @@ struct SheetMusicScrollerView: View {
                 .fill(Color.white)
                 .border(Color.gray, width: 1)
             
-            // Scrolling score
+            // Scrolling score with fixed gutter
             ScoreView(
                 notes: sheetMusic.notes,
                 activeNotes: Set(activeNotes.map { $0.id }),
-                scrollOffset: scrollOffset
+                scrollOffset: scrollOffset,
+                squiggleX: squiggleX,
+                squiggleColor: squiggleColor
             )
             .frame(height: 200)
             
-            // Cursor squiggle at playback position
-            HStack {
-                SquiggleView(height: 180, animated: isPlaying)
-                    .offset(x: 40) // Position it at the "now" line
-                
-                Spacer()
-            }
+            // Historical marker squiggle
+            SquiggleView(
+                height: 180,
+                currentYPosition: currentSquiggleYPosition,
+                scrollOffset: scrollOffset,
+                squiggleX: squiggleX
+            )
         }
         .frame(height: 200)
         .clipped()
@@ -132,6 +135,37 @@ struct SheetMusicScrollerView: View {
     
     private var activeNotes: [Note] {
         sheetMusic.notesAt(time: currentTime)
+    }
+    
+    /// Calculate the current Y position of the squiggle tip based on active notes
+    private var currentSquiggleYPosition: CGFloat {
+        let staffHeight: CGFloat = 120
+        let staffCenter = staffHeight / 2
+        let lineSpacing = staffHeight / 6
+        
+        // If there are active notes, use the first one's position
+        if let firstActiveNote = activeNotes.first {
+            return staffCenter + (firstActiveNote.position * lineSpacing)
+        }
+        
+        // If no active notes, interpolate between nearby notes or use a default position
+        let nearbyNotes = sheetMusic.notes.filter { note in
+            abs(note.startTime - currentTime) < 0.5 // Within 0.5 seconds
+        }.sorted { abs($0.startTime - currentTime) < abs($1.startTime - currentTime) }
+        
+        if let nearestNote = nearbyNotes.first {
+            return staffCenter + (nearestNote.position * lineSpacing)
+        }
+        
+        // Default to middle of staff
+        return staffCenter
+    }
+    
+    /// Get the current squiggle tip color
+    private var squiggleColor: Color {
+        // Color could vary based on pitch, tempo, or other musical factors
+        // For now, using a simple red-to-orange gradient effect
+        return .red
     }
     
     private func togglePlayback() {
