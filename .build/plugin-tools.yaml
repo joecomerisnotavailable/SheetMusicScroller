@@ -1,0 +1,73 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "PackageStructure": ["<PackageStructure>"]
+  "SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.exe": ["<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.exe>"]
+  "SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.module": ["<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.module>"]
+  "main": ["<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.exe>","<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.module>"]
+  "test": ["<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.exe>","<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.module>"]
+default: "main"
+nodes:
+  "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerApp.swiftmodule.o":
+    tool: shell
+    inputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules/SheetMusicScrollerApp.swiftmodule"]
+    outputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerApp.swiftmodule.o"]
+    description: "Wrapping AST for SheetMusicScrollerApp for debugging"
+    args: ["/usr/share/swift/usr/bin/swiftc","-modulewrap","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules/SheetMusicScrollerApp.swiftmodule","-o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerApp.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+
+  "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Data/BachAllemandeData.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/Note.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/SheetMusic.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/NoteView.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/ScoreView.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SheetMusicScrollerView.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SquiggleView.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/main.swift"]
+    outputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/sources"]
+    description: "Write auxiliary file /home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/sources"
+
+  "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/BachAllemandeData.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/Note.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/NoteView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/ScoreView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusic.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerApp.swiftmodule.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SquiggleView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/main.swift.o"]
+    outputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.product/Objects.LinkFileList"
+
+  "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/swift-version--1BFCD5C06E9F820A.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/usr/share/swift/usr/bin/swiftc"]
+    outputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/swift-version--1BFCD5C06E9F820A.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/swift-version--1BFCD5C06E9F820A.txt"
+
+  "<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.exe>":
+    tool: phony
+    inputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp"]
+    outputs: ["<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.exe>"]
+
+  "<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.module>":
+    tool: phony
+    inputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/BachAllemandeData.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/Note.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusic.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/NoteView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/ScoreView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SquiggleView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/main.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules/SheetMusicScrollerApp.swiftmodule"]
+    outputs: ["<SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.module>"]
+
+  "C.SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.exe":
+    tool: shell
+    inputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/BachAllemandeData.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/Note.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/NoteView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/ScoreView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusic.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerApp.swiftmodule.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SquiggleView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/main.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.product/Objects.LinkFileList"]
+    outputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp"]
+    description: "Linking ./.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp"
+    args: ["/usr/share/swift/usr/bin/swiftc","-L","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug","-o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp","-module-name","SheetMusicScrollerApp","-emit-executable","-Xlinker","--defsym","-Xlinker","main=SheetMusicScrollerApp_main","-Xlinker","-rpath=$ORIGIN","@/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.product/Objects.LinkFileList","-target","x86_64-unknown-linux-gnu","-g"]
+
+  "C.SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.module":
+    tool: shell
+    inputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Data/BachAllemandeData.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/Note.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/SheetMusic.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/NoteView.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/ScoreView.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SheetMusicScrollerView.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SquiggleView.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/main.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/swift-version--1BFCD5C06E9F820A.txt","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/sources"]
+    outputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/BachAllemandeData.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/Note.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusic.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/NoteView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/ScoreView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SquiggleView.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/main.swift.o","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules/SheetMusicScrollerApp.swiftmodule"]
+    description: "Compiling Swift Module 'SheetMusicScrollerApp' (8 sources)"
+    args: ["/usr/share/swift/usr/bin/swiftc","-module-name","SheetMusicScrollerApp","-emit-dependencies","-emit-module","-emit-module-path","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules/SheetMusicScrollerApp.swiftmodule","-output-file-map","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/output-file-map.json","-incremental","-c","@/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/sources","-I","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules","-target","x86_64-unknown-linux-gnu","-enable-batch-mode","-index-store-path","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/index/store","-Onone","-enable-testing","-j4","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","SheetMusicScrollerApp_main","-color-diagnostics","-swift-version","5","-g","-Xcc","-fPIC","-Xcc","-g","-package-name","sheetmusicscroller","-Xcc","-fno-omit-frame-pointer"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Package.swift","/home/runner/work/SheetMusicScroller/SheetMusicScroller/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

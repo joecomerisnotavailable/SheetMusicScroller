@@ -1,0 +1,337 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.SheetMusicScrollerApp-x86_64-unknown-linux-gnu-debug.module" : {
+      "executable" : "/usr/share/swift/usr/bin/swiftc",
+      "fileList" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/sources",
+      "importPath" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Data/BachAllemandeData.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/Note.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/SheetMusic.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/NoteView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/ScoreView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SheetMusicScrollerView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SquiggleView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/main.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/swift-version--1BFCD5C06E9F820A.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "SheetMusicScrollerApp",
+      "moduleOutputPath" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules/SheetMusicScrollerApp.swiftmodule",
+      "objects" : [
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/BachAllemandeData.swift.o",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/Note.swift.o",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusic.swift.o",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/NoteView.swift.o",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/ScoreView.swift.o",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerView.swift.o",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SquiggleView.swift.o",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/main.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-enable-batch-mode",
+        "-index-store-path",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j4",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "SheetMusicScrollerApp_main",
+        "-color-diagnostics",
+        "-swift-version",
+        "5",
+        "-g",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "sheetmusicscroller",
+        "-Xcc",
+        "-fno-omit-frame-pointer"
+      ],
+      "outputFileMapPath" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/BachAllemandeData.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/Note.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusic.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/NoteView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/ScoreView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SquiggleView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules/SheetMusicScrollerApp.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Data/BachAllemandeData.swift",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/Note.swift",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/SheetMusic.swift",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/NoteView.swift",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/ScoreView.swift",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SheetMusicScrollerView.swift",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SquiggleView.swift",
+        "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/main.swift"
+      ],
+      "tempsPath" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "SheetMusicScrollerApp" : [
+      "/usr/share/swift/usr/bin/swiftc",
+      "-module-name",
+      "SheetMusicScrollerApp",
+      "-package-name",
+      "sheetmusicscroller",
+      "-incremental",
+      "-c",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Data/BachAllemandeData.swift",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/Note.swift",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/SheetMusic.swift",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/NoteView.swift",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/ScoreView.swift",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SheetMusicScrollerView.swift",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SquiggleView.swift",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/main.swift",
+      "-I",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/Modules",
+      "-target",
+      "x86_64-unknown-linux-gnu",
+      "-enable-batch-mode",
+      "-index-store-path",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j4",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "SheetMusicScrollerApp_main",
+      "-color-diagnostics",
+      "-swift-version",
+      "5",
+      "-g",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "sheetmusicscroller",
+      "-Xcc",
+      "-fno-omit-frame-pointer",
+      "-driver-use-frontend-path",
+      "/usr/share/swift/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "SheetMusicScrollerApp" : [
+
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "traitConfiguration" : {
+    "enableAllTraits" : false
+  },
+  "writeCommands" : {
+    "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Data/BachAllemandeData.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/Note.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Models/SheetMusic.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/NoteView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/ScoreView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SheetMusicScrollerView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/Views/SquiggleView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/Sources/SheetMusicScrollerApp/main.swift"
+        }
+      ],
+      "outputFilePath" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/sources"
+    },
+    "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/BachAllemandeData.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/Note.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/NoteView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/ScoreView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusic.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerApp.swiftmodule.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SheetMusicScrollerView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/SquiggleView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.build/main.swift.o"
+        }
+      ],
+      "outputFilePath" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/SheetMusicScrollerApp.product/Objects.LinkFileList"
+    },
+    "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/swift-version--1BFCD5C06E9F820A.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/usr/share/swift/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/home/runner/work/SheetMusicScroller/SheetMusicScroller/.build/x86_64-unknown-linux-gnu/debug/swift-version--1BFCD5C06E9F820A.txt"
+    }
+  }
+}
