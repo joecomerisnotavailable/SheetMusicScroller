@@ -1,22 +1,27 @@
 import SwiftUI
 
-/// View that renders a musical staff with notes
+/// View that renders a musical staff with separated fixed gutter and scrolling notes
 struct ScoreView: View {
     let notes: [Note]
     let activeNotes: Set<UUID>
     let scrollOffset: CGFloat
     let staffHeight: CGFloat = 120
     let noteSpacing: CGFloat = 60
+    let gutterWidth: CGFloat = 80  // Width of the fixed gutter area
+    let squiggleX: CGFloat        // X position of the squiggle for pass/fail detection
+    let squiggleColor: Color      // Current squiggle tip color
     
-    init(notes: [Note], activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0) {
+    init(notes: [Note], activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0, squiggleX: CGFloat = 80, squiggleColor: Color = .red) {
         self.notes = notes
         self.activeNotes = activeNotes
         self.scrollOffset = scrollOffset
+        self.squiggleX = squiggleX
+        self.squiggleColor = squiggleColor
     }
     
     var body: some View {
         ZStack {
-            // Staff lines (5 horizontal lines)
+            // Staff lines that extend across the full width
             VStack(spacing: staffHeight / 6) {
                 ForEach(0..<5, id: \.self) { _ in
                     Rectangle()
@@ -26,24 +31,57 @@ struct ScoreView: View {
             }
             .frame(height: staffHeight)
             
-            // Treble clef symbol (approximation)
+            // Fixed gutter with treble clef and key signature
             HStack {
-                Text("𝄞")
-                    .font(.system(size: 60))
-                    .foregroundColor(.black)
-                    .padding(.trailing, 20)
-                
+                fixedGutterView
                 Spacer()
             }
             
-            // Notes positioned on the staff
-            ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
-                let xPosition = CGFloat(index) * noteSpacing + 80 - scrollOffset
-                let yPosition = noteYPosition(for: note.position)
-                
+            // Scrolling notes area
+            scrollingNotesView
+        }
+        .frame(height: staffHeight + 60) // Extra space for notes above/below staff
+        .clipped()
+    }
+    
+    private var fixedGutterView: some View {
+        HStack(spacing: 10) {
+            // Treble clef symbol
+            Text("𝄞")
+                .font(.system(size: 60))
+                .foregroundColor(.black)
+            
+            // Key signature (D minor - Bb)
+            VStack {
+                Text("♭")
+                    .font(.system(size: 20))
+                    .foregroundColor(.black)
+                    .offset(y: -staffHeight * 0.15) // Position on B line
+                Spacer()
+            }
+            .frame(height: staffHeight)
+            
+            // Visual separator line for the gutter
+            Rectangle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 1, height: staffHeight + 40)
+        }
+        .frame(width: gutterWidth)
+        .background(Color.white.opacity(0.9))
+    }
+    
+    private var scrollingNotesView: some View {
+        // Notes positioned on the staff - they scroll horizontally
+        ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
+            let xPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
+            let yPosition = noteYPosition(for: note.position)
+            let hasPassedSquiggle = xPosition <= squiggleX
+            
+            Group {
                 NoteView(
                     note: note,
                     isActive: activeNotes.contains(note.id),
+                    squiggleColor: hasPassedSquiggle ? squiggleColor : nil,
                     scale: 1.0
                 )
                 .position(x: xPosition, y: yPosition)
@@ -58,9 +96,8 @@ struct ScoreView: View {
                     }
                 }
             }
+            .opacity(xPosition > -50 ? 1 : 0) // Fade out notes that have scrolled too far left
         }
-        .frame(height: staffHeight + 60) // Extra space for notes above/below staff
-        .clipped()
     }
     
     // Convert note position to Y coordinate on staff
@@ -112,7 +149,13 @@ struct ScoreView: View {
         Note.eighth(pitch: "E5", startTime: 1.5, position: -1.5),
     ]
     
-    ScoreView(notes: sampleNotes, activeNotes: Set([sampleNotes[0].id, sampleNotes[2].id]))
-        .padding()
-        .background(Color.white)
+    ScoreView(
+        notes: sampleNotes, 
+        activeNotes: Set([sampleNotes[0].id, sampleNotes[2].id]),
+        scrollOffset: 0,
+        squiggleX: 80,
+        squiggleColor: .red
+    )
+    .padding()
+    .background(Color.white)
 }
