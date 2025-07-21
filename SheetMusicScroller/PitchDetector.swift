@@ -155,34 +155,7 @@ final class PitchDetector: ObservableObject {
             return 
         }
 
-        // Set up the audio graph: Create a silent output first (required for input to work)
-        let silenceOutput = Mixer()
-        engine.output = silenceOutput
-        
-        // Start the engine with output configured
-        do {
-            try engine.start()
-            print("AudioKit engine started successfully with output configured")
-        } catch {
-            errorMessage = "Error starting AudioKit engine: \(error.localizedDescription)"
-            print("Error starting AudioKit engine: \(error.localizedDescription)")
-            isListening = false
-            return
-        }
-
-        // Give the engine a moment to fully initialize before accessing input
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            self?.setupInputNode()
-        }
-    }
-    
-    private func setupInputNode() {
-        guard let engine = engine else {
-            errorMessage = "AudioEngine not available"
-            return
-        }
-        
-        // Try to get the input node after engine is properly configured
+        // Try to get the input node first (before starting the engine)
         mic = engine.input
         guard let mic = mic else {
             // Provide more detailed error information
@@ -205,6 +178,40 @@ final class PitchDetector: ObservableObject {
         }
         
         print("Successfully obtained AudioKit input node: \(mic)")
+
+        // Set up the audio graph: Create a proper output chain
+        // AudioKit requires an output node connected to the system output
+        let silenceOutput = Mixer()
+        silenceOutput.volume = 0.0  // Silent mixer so we don't hear any feedback
+        
+        // Connect the microphone input to our silent output to complete the audio graph
+        silenceOutput.addInput(mic)
+        print("Connected microphone input to silent output mixer")
+        
+        engine.output = silenceOutput
+        
+        // Start the engine with proper audio graph configured
+        do {
+            try engine.start()
+            print("AudioKit engine started successfully")
+        } catch {
+            errorMessage = "Error starting AudioKit engine: \(error.localizedDescription)"
+            print("Error starting AudioKit engine: \(error.localizedDescription)")
+            isListening = false
+            return
+        }
+
+        // Give the engine a moment to fully initialize before setting up pitch detection
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.setupPitchTap()
+        }
+    }
+    
+    private func setupPitchTap() {
+        guard let mic = mic else {
+            print("No microphone input available for pitch detection")
+            return
+        }
         
         // Set up the pitch tracker
         tracker = PitchTap(mic) { (pitch: [Float], amplitude: [Float]) in
@@ -239,13 +246,7 @@ final class PitchDetector: ObservableObject {
         isListening = true
         errorMessage = nil
         print("AudioKit PitchTap started successfully")
-        
-        // Connect the input to the output chain to complete the audio graph
-        if let output = engine.output as? Mixer {
-            // Create a silent connection - input -> (optional processing) -> silent output
-            // This ensures the audio graph is complete even though we only need the input for analysis
-            print("Audio graph completed - microphone input connected to silent output")
-        }
+        print("Audio graph completed - microphone input connected to silent output")
     }
     
     private func setupMockMode() {
