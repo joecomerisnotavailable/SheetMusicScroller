@@ -123,8 +123,10 @@ final class PitchDetector: ObservableObject {
     private func setupAudioKit() {
         #if canImport(AVFoundation)
         do {
-            try AVAudioSession.sharedInstance().setCategory(.record)
-            try AVAudioSession.sharedInstance().setActive(true)
+            // Configure audio session for recording
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
+            try session.setActive(true)
         } catch {
             errorMessage = "Failed to setup audio session: \(error.localizedDescription)"
             print("Failed to setup audio session: \(error.localizedDescription)")
@@ -135,15 +137,30 @@ final class PitchDetector: ObservableObject {
         engine = AudioEngine()
         guard let engine = engine else { 
             errorMessage = "Failed to create AudioEngine"
+            print("Failed to create AudioEngine")
             return 
         }
 
-        mic = engine.input
-        guard let mic = mic else {
-            errorMessage = "Could not get AudioKit input node"
-            print("Could not get AudioKit input node.")
+        // Start the engine first to initialize the audio graph
+        do {
+            try engine.start()
+            print("AudioKit engine started successfully")
+        } catch {
+            errorMessage = "Error starting AudioKit engine: \(error.localizedDescription)"
+            print("Error starting AudioKit engine: \(error.localizedDescription)")
+            isListening = false
             return
         }
+
+        // Now get the input node after the engine is started
+        mic = engine.input
+        guard let mic = mic else {
+            errorMessage = "Could not get AudioKit input node (engine started but no input available)"
+            print("Could not get AudioKit input node (engine started but no input available)")
+            return
+        }
+        
+        print("Successfully obtained AudioKit input node")
 
         tracker = PitchTap(mic) { (pitch: [Float], amplitude: [Float]) in
             // For debugging: print detected values
@@ -170,17 +187,9 @@ final class PitchDetector: ObservableObject {
         }
 
         tracker?.start()
-
-        do {
-            try engine.start()
-            isListening = true
-            errorMessage = nil
-            print("AudioKit engine started")
-        } catch {
-            errorMessage = "Error starting AudioKit engine: \(error.localizedDescription)"
-            print("Error starting AudioKit engine: \(error.localizedDescription)")
-            isListening = false
-        }
+        isListening = true
+        errorMessage = nil
+        print("AudioKit PitchTap started successfully")
     }
 
     @MainActor
@@ -189,6 +198,8 @@ final class PitchDetector: ObservableObject {
         #if canImport(AudioKit) && canImport(AVFoundation)
         if !isListening {
             checkPermissionsAndSetup()
+        } else {
+            print("Already listening for pitch")
         }
         #else
         errorMessage = "AudioKit or AVFoundation is not available on this platform"
@@ -205,25 +216,34 @@ final class PitchDetector: ObservableObject {
 
     private func stopAudioEngine() {
         print("Stopping AudioKit engine...")
+        
+        // Stop tracker first
         tracker?.stop()
-        do {
-            try engine?.stop()
-        } catch {
-            print("Error stopping AudioKit engine: \(error.localizedDescription)")
+        tracker = nil
+        
+        // Stop engine
+        if let engine = engine {
+            do {
+                try engine.stop()
+                print("AudioKit engine stopped successfully")
+            } catch {
+                print("Error stopping AudioKit engine: \(error.localizedDescription)")
+            }
         }
         
         // Clean up audio session
         #if canImport(AVFoundation)
         do {
-            try AVAudioSession.sharedInstance().setActive(false)
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            print("Audio session deactivated successfully")
         } catch {
             print("Error deactivating audio session: \(error.localizedDescription)")
         }
         #endif
         
+        // Clear references
         engine = nil
         mic = nil
-        tracker = nil
     }
     
     func frequencyToStaffPosition(_ frequency: Double) -> Double {
