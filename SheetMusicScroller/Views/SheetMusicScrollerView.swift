@@ -212,7 +212,7 @@ struct SheetMusicScrollerView: View {
         // Use live pitch detection
         if pitchDetector.currentFrequency > 0 {
             let pitchPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
-            return staffCenter + (pitchPosition * lineSpacing)
+            return staffCenter + (CGFloat(pitchPosition) * lineSpacing)
         } else {
             // No pitch detected, keep at center
             return staffCenter

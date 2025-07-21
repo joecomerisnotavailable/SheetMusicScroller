@@ -7,23 +7,55 @@
 
 import Foundation
 
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
+
 #if canImport(AudioKit)
 import AudioKit
 import AudioKitEX
 import SoundpipeAudioKit
 #endif
 
+#if canImport(AVFoundation)
 import AVFoundation
+#endif
+
+// Define protocol for when SwiftUI is not available
+#if !canImport(SwiftUI)
+protocol ObservableObject: AnyObject {
+}
+
+@propertyWrapper
+struct Published<Value> {
+    var wrappedValue: Value
+    
+    init(wrappedValue: Value) {
+        self.wrappedValue = wrappedValue
+    }
+}
+#endif
 
 final class PitchDetector: ObservableObject {
     // Published properties for UI updates
     @Published var currentFrequency: Double = 0.0
     @Published var currentAmplitude: Double = 0.0
     @Published var isListening: Bool = false
+    @Published var microphonePermissionGranted: Bool = false
+    @Published var errorMessage: String? = nil
 
     // For debugging: show detected note name, etc.
     @Published var detectedNoteName: String = "--"
     @Published var detectedOctave: Int = 0
+    
+    // Computed property for current pitch string
+    var currentPitch: String {
+        if currentFrequency > 0 && currentAmplitude > minimumAmplitudeThreshold {
+            return "\(detectedNoteName)\(detectedOctave)"
+        } else {
+            return ""
+        }
+    }
 
     private let minimumAmplitudeThreshold: Double = 0.05 // Increased to reduce ambient noise sensitivity
 
@@ -38,10 +70,11 @@ final class PitchDetector: ObservableObject {
     private var permissionTimer: Timer?
 
     init() {
-        #if canImport(AudioKit)
+        #if canImport(AudioKit) && canImport(AVFoundation)
         checkPermissionsAndSetup()
         #else
-        print("AudioKit is not available on this platform. Pitch detection will not work.")
+        print("AudioKit or AVFoundation is not available on this platform. Pitch detection will not work.")
+        errorMessage = "AudioKit or AVFoundation is not available on this platform"
         #endif
     }
 
@@ -49,42 +82,65 @@ final class PitchDetector: ObservableObject {
         // Only cleanup non-main-actor, thread-safe resources here
         permissionTimer?.invalidate()
         // Do NOT call @MainActor methods from deinit
-        #if canImport(AudioKit)
+        #if canImport(AudioKit) && canImport(AVFoundation)
         stopAudioEngine()
         #endif
     }
 
     // MARK: - AudioKit Setup and Permission
 
-    #if canImport(AudioKit)
+    #if canImport(AudioKit) && canImport(AVFoundation)
     private func checkPermissionsAndSetup() {
-        switch AVAudioApplication.sharedInstance().recordPermission {
+        switch AVAudioSession.sharedInstance().recordPermission {
         case .granted:
+            microphonePermissionGranted = true
             setupAudioKit()
         case .denied:
+            microphonePermissionGranted = false
+            errorMessage = "Microphone access denied"
             print("Microphone access denied")
         case .undetermined:
-            AVAudioApplication.sharedInstance().requestRecordPermission { [weak self] granted in
+            AVAudioSession.sharedInstance().requestRecordPermission { [weak self] granted in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
+                    self.microphonePermissionGranted = granted
                     if granted {
+                        self.errorMessage = nil
                         self.setupAudioKit()
                     } else {
+                        self.errorMessage = "Microphone access denied"
                         print("Microphone access denied")
                     }
                 }
             }
         @unknown default:
+            microphonePermissionGranted = false
+            errorMessage = "Unknown record permission state"
             print("Unknown record permission state")
         }
     }
 
     private func setupAudioKit() {
+        #if canImport(AVFoundation)
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.record)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            errorMessage = "Failed to setup audio session: \(error.localizedDescription)"
+            print("Failed to setup audio session: \(error.localizedDescription)")
+            return
+        }
+        #endif
+        
         engine = AudioEngine()
-        guard let engine = engine else { return }
+        guard let engine = engine else { 
+            errorMessage = "Failed to create AudioEngine"
+            return 
+        }
 
         mic = engine.input
         guard let mic = mic else {
+            errorMessage = "Could not get AudioKit input node"
             print("Could not get AudioKit input node.")
             return
         }
@@ -113,19 +169,32 @@ final class PitchDetector: ObservableObject {
             }
         }
 
-        tracker?.isNormalized = false
         tracker?.start()
 
         do {
             try engine.start()
             isListening = true
+            errorMessage = nil
             print("AudioKit engine started")
         } catch {
+            errorMessage = "Error starting AudioKit engine: \(error.localizedDescription)"
             print("Error starting AudioKit engine: \(error.localizedDescription)")
             isListening = false
         }
     }
 
+    @MainActor
+    func startListening() {
+        print("Starting pitch detection...")
+        #if canImport(AudioKit) && canImport(AVFoundation)
+        if !isListening {
+            checkPermissionsAndSetup()
+        }
+        #else
+        errorMessage = "AudioKit or AVFoundation is not available on this platform"
+        #endif
+    }
+    
     @MainActor
     func stopListening() {
         print("Stopping pitch detection (stopListening called)...")
@@ -142,18 +211,50 @@ final class PitchDetector: ObservableObject {
         } catch {
             print("Error stopping AudioKit engine: \(error.localizedDescription)")
         }
+        
+        // Clean up audio session
+        #if canImport(AVFoundation)
+        do {
+            try AVAudioSession.sharedInstance().setActive(false)
+        } catch {
+            print("Error deactivating audio session: \(error.localizedDescription)")
+        }
+        #endif
+        
         engine = nil
         mic = nil
         tracker = nil
     }
+    
+    func frequencyToStaffPosition(_ frequency: Double) -> Double {
+        guard frequency > 0 else { return 0.0 }
+        
+        // Convert frequency to MIDI note number
+        let midi = 69 + 12 * log2(frequency / 440.0)
+        
+        // Reference: Middle C (C4) is MIDI note 60, which should be at position 0
+        // Each staff line/space represents a step (0.5 staff positions)
+        let middleC = 60.0
+        let staffPosition = (midi - middleC) * 0.5
+        
+        return staffPosition
+    }
     #else
     // Stub if AudioKit not available
+    func startListening() {
+        errorMessage = "AudioKit or AVFoundation is not available on this platform"
+    }
+    
     func stopListening() {
         // Do nothing
     }
+    
+    func frequencyToStaffPosition(_ frequency: Double) -> Double {
+        return 0.0
+    }
     #endif
 
-    // MARK: - Helper: Frequency to Note
+    // MARK: - Helper: Frequency to Note and Staff Position
 
     static func frequencyToNoteAndOctave(_ frequency: Double) -> (note: String, octave: Int) {
         guard frequency > 0 else { return ("--", 0) }
