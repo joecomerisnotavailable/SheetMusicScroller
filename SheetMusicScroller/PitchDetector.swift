@@ -26,6 +26,7 @@ class PitchDetector: ObservableObject {
     #endif
     
     private var permissionTimer: Timer?
+    private var mockTimer: Timer?
     
     // MARK: - Constants
     private let minimumAmplitudeThreshold: Double = 0.01
@@ -40,6 +41,7 @@ class PitchDetector: ObservableObject {
     deinit {
         cleanup()
         permissionTimer?.invalidate()
+        mockTimer?.invalidate()
     }
     
     // MARK: - Public Methods
@@ -68,6 +70,10 @@ class PitchDetector: ObservableObject {
         
         // Perform thread-safe cleanup first
         cleanup()
+        
+        // Stop mock timer if it exists
+        mockTimer?.invalidate()
+        mockTimer = nil
         
         // Update main actor-isolated state
         isListening = false
@@ -120,6 +126,7 @@ class PitchDetector: ObservableObject {
         #if canImport(AudioKit)
         engine?.stop()
         #endif
+        // Note: mockTimer invalidation happens in deinit since Timer.invalidate() is main-actor safe
     }
     
     private func setupAudio() {
@@ -140,7 +147,7 @@ class PitchDetector: ObservableObject {
             
             tracker = PitchTap(mic) { [weak self] pitch, amplitude in
                 DispatchQueue.main.async {
-                    guard let self = self else { return }
+                    guard let self = self, self.isListening else { return }
                     self.updatePitchData(frequency: pitch[0], amplitude: amplitude[0])
                 }
             }
@@ -155,7 +162,7 @@ class PitchDetector: ObservableObject {
     private func setupMockPitchDetection() {
         // For development/testing when AudioKit is not available
         // This will generate mock pitch data
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        mockTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self = self, self.isListening else { return }
             
             // Generate some mock frequency data (440 Hz A4 with some variation)
