@@ -25,8 +25,8 @@ class PitchDetector: ObservableObject {
     nonisolated(unsafe) private var mic: AudioEngine.InputNode!
     #endif
     
-    private var permissionTimer: Timer?
     private var mockTimer: Timer?
+    private var lastMockUpdate: Date?
     
     // MARK: - Constants
     private let minimumAmplitudeThreshold: Double = 0.001  // Lowered for much better sensitivity
@@ -40,7 +40,7 @@ class PitchDetector: ObservableObject {
     
     deinit {
         cleanup()
-        permissionTimer?.invalidate()
+        lastMockUpdate = nil
         mockTimer?.invalidate()
     }
     
@@ -155,13 +155,15 @@ class PitchDetector: ObservableObject {
     private func setupAudioKit() {
         do {
             // Configure audio session for recording
-            try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
-            try AVAudioSession.sharedInstance().setActive(true)
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
+            try audioSession.setActive(true)
+            
+            print("🎤 Audio session configured successfully")
             
             engine = AudioEngine()
             guard let input = engine.input else {
-                print("⚠️ AudioKit input node not available, using mock detection")
-                setupMockPitchDetection()
+                print("⚠️ AudioKit input node not available")
                 return
             }
             mic = input
@@ -169,13 +171,14 @@ class PitchDetector: ObservableObject {
             tracker = PitchTap(mic) { [weak self] pitch, amplitude in
                 DispatchQueue.main.async {
                     guard let self = self, self.isListening else { return }
+                    
                     // AudioKit sometimes returns arrays, take the first value
                     let freq = pitch.count > 0 ? pitch[0] : 0.0
                     let amp = amplitude.count > 0 ? amplitude[0] : 0.0
                     
-                    // Debug real audio input
-                    if freq > 0 {
-                        print("🎵 Real audio detected: \(Int(freq)) Hz, amplitude: \(String(format: "%.3f", amp))")
+                    // Only log when we have actual audio input
+                    if amp > 0.0001 {
+                        print("🎵 AudioKit input: \(String(format: "%.1f", freq)) Hz, amplitude: \(String(format: "%.4f", amp))")
                     }
                     
                     self.updatePitchData(frequency: freq, amplitude: amp)
@@ -186,25 +189,30 @@ class PitchDetector: ObservableObject {
             
         } catch {
             print("❌ Failed to setup AudioKit: \(error)")
-            print("🎭 Falling back to mock pitch detection")
-            setupMockPitchDetection()
         }
     }
     #endif
     
     private func setupMockPitchDetection() {
-        // For development/testing when AudioKit is not available
-        // This will generate mock pitch data that simulates varying frequencies
-        print("🎭 Using mock pitch detection - this should only happen if AudioKit fails to initialize")
+        // Only use as absolute fallback when AudioKit completely fails
+        print("🎭 Warning: Using mock pitch detection - real microphone input is not available")
+        lastMockUpdate = Date()
         
         mockTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self = self, self.isListening else { return }
             
-            // Generate more realistic mock frequency data 
-            let time = Date().timeIntervalSince1970
-            let baseFreq = 293.0 + 50.0 * sin(time * 0.3)  // D4 area (243-343 Hz)
-            let mockFrequency = baseFreq
-            let mockAmplitude = 0.05 + 0.02 * sin(time * 1.5)  // Varying amplitude
+            // More conservative mock behavior - less random movement  
+            let now = Date()
+            let timeElapsed = now.timeIntervalSince(lastMockUpdate ?? now)
+            lastMockUpdate = now
+            
+            // Generate subtle frequency variation around D4
+            let baseFreq = 293.0  // D4
+            let variation = 10.0 * sin(timeElapsed * 0.5)  // Much smaller variation
+            let mockFrequency = baseFreq + variation
+            let mockAmplitude = 0.02  // Low but above threshold
+            
+            print("🎭 Mock pitch: \(String(format: "%.1f", mockFrequency)) Hz")
             
             DispatchQueue.main.async {
                 self.updatePitchData(frequency: mockFrequency, amplitude: mockAmplitude)
@@ -215,23 +223,18 @@ class PitchDetector: ObservableObject {
     private func updatePitchData(frequency: Double, amplitude: Double) {
         currentAmplitude = amplitude
         
-        // Debug output for all detected audio
-        if amplitude > 0.0001 {
-            print("🔊 Audio input: \(String(format: "%.1f", frequency)) Hz, amp: \(String(format: "%.4f", amplitude))")
-        }
-        
-        // Only update frequency if amplitude is above threshold
-        if amplitude > minimumAmplitudeThreshold {
+        // Only update frequency if amplitude is above threshold and frequency is reasonable
+        if amplitude > minimumAmplitudeThreshold && frequency > 50 && frequency < 4000 {
             // Apply smoothing to reduce jitter, but keep it responsive
             smoothedFrequency = (smoothedFrequency * frequencySmoothing) + (frequency * (1.0 - frequencySmoothing))
             currentFrequency = smoothedFrequency
             currentPitch = midiToPitchName(frequencyToMIDI(smoothedFrequency))
             
-            // Debug print for frequencies above threshold
-            print("🎵 Pitch detected: \(Int(smoothedFrequency)) Hz -> \(currentPitch) (staff pos: \(String(format: "%.1f", frequencyToStaffPosition(smoothedFrequency))))")
+            // Log detected pitches with staff position
+            print("🎵 Pitch: \(Int(smoothedFrequency)) Hz -> \(currentPitch) (staff pos: \(String(format: "%.1f", frequencyToStaffPosition(smoothedFrequency))))")
         } else {
             // Fade to silence more gradually
-            smoothedFrequency *= 0.95
+            smoothedFrequency *= 0.9
             if smoothedFrequency < 50 {  // Completely fade out below 50 Hz
                 currentFrequency = 0.0
                 currentPitch = ""
@@ -245,9 +248,9 @@ class PitchDetector: ObservableObject {
     private func startAudioEngine() {
         #if canImport(AudioKit)
         do {
-            // Only start if we have a properly initialized tracker
-            guard tracker != nil else {
-                print("⚠️ PitchTap not initialized, using mock detection")
+            // Only proceed if we have properly initialized components
+            guard let engine = engine, let tracker = tracker else {
+                print("⚠️ Audio components not properly initialized")
                 isListening = true
                 setupMockPitchDetection()
                 return
@@ -256,17 +259,19 @@ class PitchDetector: ObservableObject {
             try engine.start()
             tracker.start()
             isListening = true
-            print("🎼 Audio engine and pitch tracker started successfully - listening for real audio input")
+            print("🎼 Audio engine and pitch tracker started - listening for microphone input")
+            
         } catch {
             print("❌ Failed to start audio engine: \(error)")
-            print("🎭 Falling back to mock pitch detection")
+            print("🎭 Using mock detection as fallback")
             isListening = true
             setupMockPitchDetection()
         }
         #else
-        // Mock audio engine start
+        // No AudioKit available
         isListening = true
-        print("🎭 Mock audio engine started - squiggle will show animated frequency changes")
+        setupMockPitchDetection()
+        print("🎭 AudioKit not available - using mock audio detection")
         #endif
     }
     
