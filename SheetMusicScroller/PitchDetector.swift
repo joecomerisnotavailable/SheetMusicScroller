@@ -29,9 +29,10 @@ class PitchDetector: ObservableObject {
     private var lastMockUpdate: Date?
     
     // MARK: - Constants
-    private let minimumAmplitudeThreshold: Double = 0.001  // Lowered for much better sensitivity
-    private let frequencySmoothing: Double = 0.5           // Reduced for more responsiveness
+    private let minimumAmplitudeThreshold: Double = 0.0005  // More sensitive threshold
+    private let frequencySmoothing: Double = 0.3            // More responsive smoothing
     private var smoothedFrequency: Double = 0.0
+    private var smoothedAmplitude: Double = 0.0
     
     // MARK: - Initialization
     init() {
@@ -145,74 +146,81 @@ class PitchDetector: ObservableObject {
         #if canImport(AudioKit)
         setupAudioKit()
         #else
-        // Fallback for when AudioKit is not available
-        print("AudioKit not available - using mock pitch detection")
-        setupMockPitchDetection()
+        // Fallback for when AudioKit is not available (e.g., in simulator)
+        print("⚠️ AudioKit not available - will use mock pitch detection")
         #endif
     }
     
     #if canImport(AudioKit)
     private func setupAudioKit() {
         do {
-            // Configure audio session for recording
+            // Reset any existing audio session configuration
             let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
+            
+            // Configure audio session for high-quality recording
+            try audioSession.setCategory(.playAndRecord, 
+                                       mode: .measurement, 
+                                       options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
             try audioSession.setActive(true)
             
-            print("🎤 Audio session configured successfully")
+            // Set a high sample rate for better pitch detection accuracy
+            try audioSession.setPreferredSampleRate(44100.0)
+            try audioSession.setPreferredIOBufferDuration(0.005) // 5ms buffer for low latency
             
+            print("🎤 Audio session configured: sample rate \(audioSession.sampleRate), buffer duration \(audioSession.ioBufferDuration)")
+            
+            // Initialize AudioKit engine
             engine = AudioEngine()
             guard let input = engine.input else {
-                print("⚠️ AudioKit input node not available")
+                print("❌ AudioKit input node unavailable")
                 return
             }
             mic = input
             
+            // Create pitch tracker with optimized settings
             tracker = PitchTap(mic) { [weak self] pitch, amplitude in
                 DispatchQueue.main.async {
                     guard let self = self, self.isListening else { return }
                     
-                    // AudioKit sometimes returns arrays, take the first value
+                    // Handle both single values and arrays from AudioKit
                     let freq = pitch.count > 0 ? pitch[0] : 0.0
                     let amp = amplitude.count > 0 ? amplitude[0] : 0.0
                     
-                    // Only log when we have actual audio input
+                    // Debug actual microphone input detection
                     if amp > 0.0001 {
-                        print("🎵 AudioKit input: \(String(format: "%.1f", freq)) Hz, amplitude: \(String(format: "%.4f", amp))")
+                        print("🎤 Raw input: \(String(format: "%.1f", freq)) Hz, \(String(format: "%.4f", amp)) amplitude")
                     }
                     
                     self.updatePitchData(frequency: freq, amplitude: amp)
                 }
             }
             
-            print("🎤 AudioKit pitch detection initialized successfully")
+            print("✅ AudioKit pitch detection initialized successfully")
             
         } catch {
-            print("❌ Failed to setup AudioKit: \(error)")
+            print("❌ Failed to setup AudioKit: \(error.localizedDescription)")
+            print("   Error details: \(error)")
         }
     }
     #endif
     
     private func setupMockPitchDetection() {
-        // Only use as absolute fallback when AudioKit completely fails
-        print("🎭 Warning: Using mock pitch detection - real microphone input is not available")
+        // Conservative mock behavior - only used when AudioKit completely fails
+        print("🎭 ⚠️ MOCK MODE: Real microphone input is not available")
+        print("🎭 This should only happen in simulator or if AudioKit fails")
         lastMockUpdate = Date()
         
-        mockTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        mockTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             guard let self = self, self.isListening else { return }
             
-            // More conservative mock behavior - less random movement  
-            let now = Date()
-            let timeElapsed = now.timeIntervalSince(lastMockUpdate ?? now)
-            lastMockUpdate = now
+            // Very subtle, predictable mock behavior for testing UI
+            let timeOffset = Date().timeIntervalSince(lastMockUpdate ?? Date())
             
-            // Generate subtle frequency variation around D4
-            let baseFreq = 293.0  // D4
-            let variation = 10.0 * sin(timeElapsed * 0.5)  // Much smaller variation
+            // Gentle oscillation around middle C (261 Hz)
+            let baseFreq = 261.0  // C4
+            let variation = 5.0 * sin(timeOffset * 0.3)  // Very small variation
             let mockFrequency = baseFreq + variation
-            let mockAmplitude = 0.02  // Low but above threshold
-            
-            print("🎭 Mock pitch: \(String(format: "%.1f", mockFrequency)) Hz")
+            let mockAmplitude = 0.002  // Just above threshold
             
             DispatchQueue.main.async {
                 self.updatePitchData(frequency: mockFrequency, amplitude: mockAmplitude)
@@ -221,21 +229,25 @@ class PitchDetector: ObservableObject {
     }
     
     private func updatePitchData(frequency: Double, amplitude: Double) {
-        currentAmplitude = amplitude
+        // Apply smoothing to amplitude for more stable signal detection
+        smoothedAmplitude = (smoothedAmplitude * 0.7) + (amplitude * 0.3)
+        currentAmplitude = smoothedAmplitude
         
-        // Only update frequency if amplitude is above threshold and frequency is reasonable
-        if amplitude > minimumAmplitudeThreshold && frequency > 50 && frequency < 4000 {
-            // Apply smoothing to reduce jitter, but keep it responsive
+        // Only process frequencies in a reasonable musical range
+        if smoothedAmplitude > minimumAmplitudeThreshold && frequency > 80 && frequency < 2000 {
+            // Apply frequency smoothing for stable pitch detection
             smoothedFrequency = (smoothedFrequency * frequencySmoothing) + (frequency * (1.0 - frequencySmoothing))
             currentFrequency = smoothedFrequency
             currentPitch = midiToPitchName(frequencyToMIDI(smoothedFrequency))
             
-            // Log detected pitches with staff position
-            print("🎵 Pitch: \(Int(smoothedFrequency)) Hz -> \(currentPitch) (staff pos: \(String(format: "%.1f", frequencyToStaffPosition(smoothedFrequency))))")
+            // Log successful pitch detection with less spam
+            if Int(smoothedFrequency) % 10 == 0 || smoothedFrequency != frequency {
+                print("🎵 Detected: \(Int(smoothedFrequency)) Hz → \(currentPitch) (amp: \(String(format: "%.3f", smoothedAmplitude)))")
+            }
         } else {
-            // Fade to silence more gradually
-            smoothedFrequency *= 0.9
-            if smoothedFrequency < 50 {  // Completely fade out below 50 Hz
+            // Gradual fade when signal drops
+            smoothedFrequency *= 0.85
+            if smoothedFrequency < 80 {
                 currentFrequency = 0.0
                 currentPitch = ""
             } else {
@@ -247,45 +259,70 @@ class PitchDetector: ObservableObject {
     
     private func startAudioEngine() {
         #if canImport(AudioKit)
+        guard let engine = engine, let tracker = tracker else {
+            print("⚠️ Audio components not initialized, cannot start real audio detection")
+            isListening = true
+            setupMockPitchDetection()
+            return
+        }
+        
         do {
-            // Only proceed if we have properly initialized components
-            guard let engine = engine, let tracker = tracker else {
-                print("⚠️ Audio components not properly initialized")
-                isListening = true
-                setupMockPitchDetection()
-                return
+            // Ensure audio session is still active
+            try AVAudioSession.sharedInstance().setActive(true)
+            
+            // Start the audio engine
+            try engine.start()
+            
+            // Start pitch tracking
+            tracker.start()
+            
+            isListening = true
+            print("🎼 ✅ Audio engine started successfully - microphone is now active")
+            
+            // Give a moment for the audio engine to stabilize
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                print("🎼 Audio engine should now be detecting microphone input")
             }
             
-            try engine.start()
-            tracker.start()
-            isListening = true
-            print("🎼 Audio engine and pitch tracker started - listening for microphone input")
-            
         } catch {
-            print("❌ Failed to start audio engine: \(error)")
-            print("🎭 Using mock detection as fallback")
+            print("❌ Failed to start audio engine: \(error.localizedDescription)")
+            print("   Falling back to mock detection")
             isListening = true
             setupMockPitchDetection()
         }
         #else
-        // No AudioKit available
+        // AudioKit not available
+        print("⚠️ AudioKit not available on this platform")
         isListening = true
         setupMockPitchDetection()
-        print("🎭 AudioKit not available - using mock audio detection")
         #endif
     }
     
     private func checkMicrophonePermission(completion: @escaping (Bool) -> Void) {
-        switch AVAudioSession.sharedInstance().recordPermission {
+        let recordPermission = AVAudioSession.sharedInstance().recordPermission
+        print("🎤 Current microphone permission status: \(recordPermission)")
+        
+        switch recordPermission {
         case .granted:
+            print("✅ Microphone permission already granted")
             completion(true)
         case .denied:
+            print("❌ Microphone permission denied")
             completion(false)
         case .undetermined:
+            print("🎤 Requesting microphone permission...")
             AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                completion(granted)
+                DispatchQueue.main.async {
+                    if granted {
+                        print("✅ Microphone permission granted by user")
+                    } else {
+                        print("❌ Microphone permission denied by user")
+                    }
+                    completion(granted)
+                }
             }
         @unknown default:
+            print("⚠️ Unknown microphone permission state")
             completion(false)
         }
     }
