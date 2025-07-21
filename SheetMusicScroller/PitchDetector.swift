@@ -122,11 +122,24 @@ final class PitchDetector: ObservableObject {
 
     private func setupAudioKit() {
         #if canImport(AVFoundation)
+        // First check if we have any available audio inputs
+        let session = AVAudioSession.sharedInstance()
+        let hasInputs = session.availableInputs?.count ?? 0 > 0
+        let hasCurrentInputs = session.currentRoute.inputs.count > 0
+        
+        print("Audio system check - Available inputs: \(session.availableInputs?.count ?? 0), Current inputs: \(session.currentRoute.inputs.count)")
+        
+        if !hasInputs && !hasCurrentInputs {
+            errorMessage = "No audio input devices available on this system"
+            print("No audio input devices found - pitch detection unavailable")
+            return
+        }
+        
         do {
             // Configure audio session for recording
-            let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
             try session.setActive(true)
+            print("Audio session configured successfully")
         } catch {
             errorMessage = "Failed to setup audio session: \(error.localizedDescription)"
             print("Failed to setup audio session: \(error.localizedDescription)")
@@ -152,19 +165,50 @@ final class PitchDetector: ObservableObject {
             return
         }
 
-        // Now get the input node after the engine is started
-        mic = engine.input
-        guard let mic = mic else {
-            errorMessage = "Could not get AudioKit input node (engine started but no input available)"
-            print("Could not get AudioKit input node (engine started but no input available)")
+        // Give the engine a moment to fully initialize before accessing input
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.setupInputNode()
+        }
+    }
+    
+    private func setupInputNode() {
+        guard let engine = engine else {
+            errorMessage = "AudioEngine not available"
             return
         }
         
-        print("Successfully obtained AudioKit input node")
-
+        // Try to get the input node
+        mic = engine.input
+        guard let mic = mic else {
+            // Provide more detailed error information
+            #if canImport(AVFoundation)
+            let session = AVAudioSession.sharedInstance()
+            let inputInfo = session.currentRoute.inputs.map { "\($0.portName) (\($0.portType))" }.joined(separator: ", ")
+            let availableInfo = session.availableInputs?.map { "\($0.portName) (\($0.portType))" }.joined(separator: ", ") ?? "none"
+            
+            errorMessage = "AudioKit input node unavailable. Current inputs: \(inputInfo.isEmpty ? "none" : inputInfo). Available: \(availableInfo)"
+            print("AudioKit input node unavailable - Current route inputs: \(inputInfo.isEmpty ? "none" : inputInfo)")
+            print("Available inputs: \(availableInfo)")
+            #else
+            errorMessage = "AudioKit input node unavailable (no audio input detected)"
+            print("AudioKit input node unavailable - no audio input detected")
+            #endif
+            
+            // Set up a mock/stub mode for environments without audio input
+            setupMockMode()
+            return
+        }
+        
+        print("Successfully obtained AudioKit input node: \(mic)")
+        
+        // Set up the pitch tracker
         tracker = PitchTap(mic) { (pitch: [Float], amplitude: [Float]) in
-            // For debugging: print detected values
-            print("PitchTap detected pitches: \(pitch), amplitudes: \(amplitude)")
+            // For debugging: print detected values occasionally (not every frame to reduce spam)
+            let now = Date().timeIntervalSince1970
+            if Int(now) % 5 == 0 && Int(now * 10) % 10 == 0 { // Print roughly every 5 seconds
+                print("PitchTap detected pitches: \(pitch.prefix(3)), amplitudes: \(amplitude.prefix(3))")
+            }
+            
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 let detectedPitch = Double(pitch.first ?? 0)
@@ -191,18 +235,36 @@ final class PitchDetector: ObservableObject {
         errorMessage = nil
         print("AudioKit PitchTap started successfully")
     }
+    
+    private func setupMockMode() {
+        // For environments without audio input, provide a visual indication but no errors
+        print("Setting up mock mode - pitch detection will show placeholder values")
+        isListening = false
+        errorMessage = "Audio input not available - pitch detection disabled"
+        
+        // Reset all values to defaults
+        currentFrequency = 0
+        currentAmplitude = 0
+        detectedNoteName = "--"
+        detectedOctave = 0
+    }
 
     @MainActor
     func startListening() {
         print("Starting pitch detection...")
         #if canImport(AudioKit) && canImport(AVFoundation)
         if !isListening {
-            checkPermissionsAndSetup()
+            if microphonePermissionGranted {
+                setupAudioKit()
+            } else {
+                checkPermissionsAndSetup()
+            }
         } else {
             print("Already listening for pitch")
         }
         #else
         errorMessage = "AudioKit or AVFoundation is not available on this platform"
+        print("AudioKit/AVFoundation not available - platform not supported")
         #endif
     }
     
@@ -212,6 +274,20 @@ final class PitchDetector: ObservableObject {
         tracker?.stop()
         stopAudioEngine()
         isListening = false
+    }
+    
+    @MainActor
+    func retryAudioSetup() {
+        print("Retrying audio setup...")
+        stopListening()
+        
+        // Clear previous error
+        errorMessage = nil
+        
+        // Wait a moment then try again
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.startListening()
+        }
     }
 
     private func stopAudioEngine() {
