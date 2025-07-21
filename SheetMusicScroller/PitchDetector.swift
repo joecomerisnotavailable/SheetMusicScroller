@@ -64,7 +64,6 @@ final class PitchDetector: ObservableObject {
     private var engine: AudioEngine?
     private var mic: AudioEngine.InputNode?
     private var tracker: PitchTap?
-    private var output: AudioEngine.OutputNode?
     #endif
 
     // Timer for permission check
