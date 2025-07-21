@@ -17,6 +17,7 @@ class PitchDetector: ObservableObject {
     @Published var currentAmplitude: Double = 0.0
     @Published var isListening: Bool = false
     @Published var microphonePermissionGranted: Bool = false
+    @Published var errorMessage: String? = nil
     
     // MARK: - Private Properties
     #if canImport(AudioKit)
@@ -24,9 +25,6 @@ class PitchDetector: ObservableObject {
     private var tracker: PitchTap!
     nonisolated(unsafe) private var mic: AudioEngine.InputNode!
     #endif
-    
-    private var mockTimer: Timer?
-    private var lastMockUpdate: Date?
     
     // MARK: - Constants
     private let minimumAmplitudeThreshold: Double = 0.0005  // More sensitive threshold
@@ -41,8 +39,6 @@ class PitchDetector: ObservableObject {
     
     deinit {
         cleanup()
-        lastMockUpdate = nil
-        mockTimer?.invalidate()
     }
     
     // MARK: - Public Methods
@@ -77,15 +73,12 @@ class PitchDetector: ObservableObject {
         // Perform thread-safe cleanup
         cleanup()
         
-        // Stop mock timer if it exists
-        mockTimer?.invalidate()
-        mockTimer = nil
-        
         // Update main actor-isolated state
         isListening = false
         currentFrequency = 0.0
         currentPitch = ""
         currentAmplitude = 0.0
+        errorMessage = nil
     }
     
     /// Convert frequency to staff position for sheet music display
@@ -139,15 +132,15 @@ class PitchDetector: ObservableObject {
         engine?.stop()
         // Note: tracker.stop() should be called from main actor context in stopListening()
         #endif
-        // Note: mockTimer invalidation happens in deinit since Timer.invalidate() is main-actor safe
     }
     
     private func setupAudio() {
         #if canImport(AudioKit)
         setupAudioKit()
         #else
-        // Fallback for when AudioKit is not available (e.g., in simulator)
-        print("⚠️ AudioKit not available - will use mock pitch detection")
+        // AudioKit is not available (e.g., in simulator)
+        errorMessage = "AudioKit is not available on this platform. Real-time pitch detection requires AudioKit and is only supported on physical devices."
+        print("❌ AudioKit not available - pitch detection unavailable")
         #endif
     }
     
@@ -204,30 +197,6 @@ class PitchDetector: ObservableObject {
     }
     #endif
     
-    private func setupMockPitchDetection() {
-        // Conservative mock behavior - only used when AudioKit completely fails
-        print("🎭 ⚠️ MOCK MODE: Real microphone input is not available")
-        print("🎭 This should only happen in simulator or if AudioKit fails")
-        lastMockUpdate = Date()
-        
-        mockTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            guard let self = self, self.isListening else { return }
-            
-            // Very subtle, predictable mock behavior for testing UI
-            let timeOffset = Date().timeIntervalSince(lastMockUpdate ?? Date())
-            
-            // Gentle oscillation around middle C (261 Hz)
-            let baseFreq = 261.0  // C4
-            let variation = 5.0 * sin(timeOffset * 0.3)  // Very small variation
-            let mockFrequency = baseFreq + variation
-            let mockAmplitude = 0.002  // Just above threshold
-            
-            DispatchQueue.main.async {
-                self.updatePitchData(frequency: mockFrequency, amplitude: mockAmplitude)
-            }
-        }
-    }
-    
     private func updatePitchData(frequency: Double, amplitude: Double) {
         // Apply smoothing to amplitude for more stable signal detection
         smoothedAmplitude = (smoothedAmplitude * 0.7) + (amplitude * 0.3)
@@ -260,9 +229,9 @@ class PitchDetector: ObservableObject {
     private func startAudioEngine() {
         #if canImport(AudioKit)
         guard let engine = engine, let tracker = tracker else {
-            print("⚠️ Audio components not initialized, cannot start real audio detection")
-            isListening = true
-            setupMockPitchDetection()
+            let error = "Audio components not initialized. AudioKit setup failed."
+            print("❌ \(error)")
+            errorMessage = error
             return
         }
         
@@ -277,6 +246,7 @@ class PitchDetector: ObservableObject {
             tracker.start()
             
             isListening = true
+            errorMessage = nil
             print("🎼 ✅ Audio engine started successfully - microphone is now active")
             
             // Give a moment for the audio engine to stabilize
@@ -285,16 +255,15 @@ class PitchDetector: ObservableObject {
             }
             
         } catch {
-            print("❌ Failed to start audio engine: \(error.localizedDescription)")
-            print("   Falling back to mock detection")
-            isListening = true
-            setupMockPitchDetection()
+            let errorMsg = "Failed to start audio engine: \(error.localizedDescription)"
+            print("❌ \(errorMsg)")
+            errorMessage = errorMsg
         }
         #else
         // AudioKit not available
-        print("⚠️ AudioKit not available on this platform")
-        isListening = true
-        setupMockPitchDetection()
+        let error = "AudioKit not available on this platform. Real-time pitch detection requires AudioKit."
+        print("❌ \(error)")
+        errorMessage = error
         #endif
     }
     

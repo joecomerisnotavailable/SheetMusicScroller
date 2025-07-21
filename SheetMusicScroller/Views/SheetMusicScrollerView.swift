@@ -155,6 +155,15 @@ struct SheetMusicScrollerView: View {
                 }
             }
             
+            // Show error message if there is one
+            if let errorMessage = pitchDetector.errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            
             HStack(spacing: 20) {
                 VStack(alignment: .leading) {
                     Text("Frequency")
