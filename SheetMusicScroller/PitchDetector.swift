@@ -20,9 +20,9 @@ class PitchDetector: ObservableObject {
     
     // MARK: - Private Properties
     #if canImport(AudioKit)
-    private var engine: AudioEngine!
+    nonisolated(unsafe) private var engine: AudioEngine!
     private var tracker: PitchTap!
-    private var mic: AudioEngine.InputNode!
+    nonisolated(unsafe) private var mic: AudioEngine.InputNode!
     #endif
     
     private var permissionTimer: Timer?
@@ -38,7 +38,7 @@ class PitchDetector: ObservableObject {
     }
     
     deinit {
-        stopListening()
+        cleanup()
         permissionTimer?.invalidate()
     }
     
@@ -66,10 +66,10 @@ class PitchDetector: ObservableObject {
     func stopListening() {
         guard isListening else { return }
         
-        #if canImport(AudioKit)
-        engine?.stop()
-        #endif
+        // Perform thread-safe cleanup first
+        cleanup()
         
+        // Update main actor-isolated state
         isListening = false
         currentFrequency = 0.0
         currentPitch = ""
@@ -113,6 +113,14 @@ class PitchDetector: ObservableObject {
     }
     
     // MARK: - Private Methods
+    
+    /// Thread-safe cleanup that can be called from deinit
+    /// Only performs operations that don't require main actor isolation
+    nonisolated private func cleanup() {
+        #if canImport(AudioKit)
+        engine?.stop()
+        #endif
+    }
     
     private func setupAudio() {
         #if canImport(AudioKit)
