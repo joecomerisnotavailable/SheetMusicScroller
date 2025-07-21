@@ -289,20 +289,31 @@ struct SheetMusicScrollerView: View {
     /// Get the current squiggle tip color based on pitch and musical context
     private var squiggleColor: Color {
         if isPitchMode {
-            // Color based on live pitch detection strength
-            if pitchDetector.currentAmplitude > 0.1 {
-                return .green // Strong signal
-            } else if pitchDetector.currentAmplitude > 0.05 {
-                return .orange // Weak signal
+            // Color based on live pitch detection - vary by frequency and signal strength
+            if pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 {
+                // Color mapping based on detected frequency (similar to time-based mode)
+                let staffPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
+                
+                if staffPosition < -3.0 {
+                    return .purple  // Very high frequencies
+                } else if staffPosition < -1.0 {
+                    return .blue    // High frequencies  
+                } else if staffPosition < 1.0 {
+                    return .green   // Medium frequencies
+                } else if staffPosition < 3.0 {
+                    return .orange  // Lower frequencies
+                } else {
+                    return .red     // Very low frequencies
+                }
             } else {
-                return .red // No signal
+                return .gray // No signal detected
             }
         } else {
             // Color varies based on pitch range and musical expression (original logic)
             if let activeNote = activeNotes.first {
                 let pitch = activeNote.position
                 
-                // Color mapping based on pitch height
+                // Color mapping based on pitch height on staff
                 if pitch < -2.5 {
                     return .purple  // Very high notes
                 } else if pitch < -1.5 {
