@@ -90,7 +90,7 @@ struct SquiggleView: View {
         let currentPoint = CGPoint(x: squiggleX, y: currentYPosition)
         
         // Only add a new point if the position has changed meaningfully
-        let threshold: CGFloat = isPitchMode ? 5.0 : 2.0 // Larger threshold for pitch mode to reduce jitter
+        let threshold: CGFloat = isPitchMode ? 3.0 : 2.0 // Reduced threshold for pitch mode to be more responsive
         if historyPoints.isEmpty || 
            abs(historyPoints.last!.y - currentYPosition) > threshold || 
            (!isPitchMode && scrollDelta > 1) {

@@ -29,8 +29,8 @@ class PitchDetector: ObservableObject {
     private var mockTimer: Timer?
     
     // MARK: - Constants
-    private let minimumAmplitudeThreshold: Double = 0.01
-    private let frequencySmoothing: Double = 0.8
+    private let minimumAmplitudeThreshold: Double = 0.005  // Lowered for better sensitivity
+    private let frequencySmoothing: Double = 0.7           // Reduced for more responsiveness
     private var smoothedFrequency: Double = 0.0
     
     // MARK: - Initialization
@@ -90,13 +90,17 @@ class PitchDetector: ObservableObject {
         // Convert frequency to MIDI note number
         let midiNote = frequencyToMIDI(frequency)
         
-        // Map MIDI note to staff position
+        // Map MIDI note to staff position with expanded range handling
         // Middle C (C4) = MIDI 60, should be around position 0 (center of treble staff)
-        // Each semitone is approximately 0.15 staff line spacing
+        // Each semitone is approximately 0.12 staff line spacing (reduced for wider range)
         let middleC: Double = 60
-        let staffPosition = (midiNote - middleC) * 0.15
+        let rawStaffPosition = (midiNote - middleC) * 0.12
         
-        return CGFloat(staffPosition)
+        // Constrain to reasonable staff bounds (approximately -4 to +4 staff line spacings)
+        // This ensures even very high whistling frequencies stay visible
+        let constrainedPosition = max(-4.0, min(4.0, rawStaffPosition))
+        
+        return CGFloat(constrainedPosition)
     }
     
     /// Convert frequency to MIDI note number
@@ -143,17 +147,28 @@ class PitchDetector: ObservableObject {
     private func setupAudioKit() {
         do {
             engine = AudioEngine()
-            mic = engine.input
+            guard let input = engine.input else {
+                print("⚠️ AudioKit input node not available, using mock detection")
+                setupMockPitchDetection()
+                return
+            }
+            mic = input
             
             tracker = PitchTap(mic) { [weak self] pitch, amplitude in
                 DispatchQueue.main.async {
                     guard let self = self, self.isListening else { return }
-                    self.updatePitchData(frequency: pitch[0], amplitude: amplitude[0])
+                    // AudioKit sometimes returns arrays, take the first value
+                    let freq = pitch.count > 0 ? pitch[0] : 0.0
+                    let amp = amplitude.count > 0 ? amplitude[0] : 0.0
+                    self.updatePitchData(frequency: freq, amplitude: amp)
                 }
             }
             
+            print("🎤 AudioKit pitch detection initialized successfully")
+            
         } catch {
-            print("Failed to setup AudioKit: \(error)")
+            print("❌ Failed to setup AudioKit: \(error)")
+            print("🎭 Falling back to mock pitch detection")
             setupMockPitchDetection()
         }
     }
@@ -161,15 +176,20 @@ class PitchDetector: ObservableObject {
     
     private func setupMockPitchDetection() {
         // For development/testing when AudioKit is not available
-        // This will generate mock pitch data
-        mockTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        // This will generate mock pitch data that simulates varying frequencies
+        print("🎤 Using mock pitch detection - squiggle will show animated frequency changes")
+        
+        mockTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             guard let self = self, self.isListening else { return }
             
-            // Generate some mock frequency data (440 Hz A4 with some variation)
-            let baseFreq = 440.0
-            let variation = Double.random(in: -50...50)
-            let mockFrequency = baseFreq + variation
-            let mockAmplitude = 0.3
+            // Generate mock frequency data that varies more dramatically to simulate whistling/singing
+            let time = Date().timeIntervalSince1970
+            let baseFreq = 440.0 + 200.0 * sin(time * 0.5)  // Oscillates between 240-640 Hz
+            let highFreq = 880.0 + 400.0 * sin(time * 0.3)  // Occasionally jump to higher frequencies (480-1280 Hz)
+            
+            // Randomly choose between base and high frequency to simulate varied input
+            let mockFrequency = Double.random(in: 0...1) < 0.7 ? baseFreq : highFreq
+            let mockAmplitude = 0.4 + 0.3 * sin(time * 2)  // Varying amplitude 0.1-0.7
             
             DispatchQueue.main.async {
                 self.updatePitchData(frequency: mockFrequency, amplitude: mockAmplitude)
@@ -182,14 +202,25 @@ class PitchDetector: ObservableObject {
         
         // Only update frequency if amplitude is above threshold
         if amplitude > minimumAmplitudeThreshold {
-            // Apply smoothing to reduce jitter
+            // Apply smoothing to reduce jitter, but keep it responsive
             smoothedFrequency = (smoothedFrequency * frequencySmoothing) + (frequency * (1.0 - frequencySmoothing))
             currentFrequency = smoothedFrequency
             currentPitch = midiToPitchName(frequencyToMIDI(smoothedFrequency))
+            
+            // Debug print for very high frequencies that might indicate whistling
+            if frequency > 1000 {
+                print("🎵 High frequency detected: \(Int(frequency)) Hz -> \(currentPitch)")
+            }
         } else {
-            // Fade to silence
-            currentFrequency = 0.0
-            currentPitch = ""
+            // Fade to silence more gradually
+            smoothedFrequency *= 0.95
+            if smoothedFrequency < 50 {  // Completely fade out below 50 Hz
+                currentFrequency = 0.0
+                currentPitch = ""
+            } else {
+                currentFrequency = smoothedFrequency
+                currentPitch = midiToPitchName(frequencyToMIDI(smoothedFrequency))
+            }
         }
     }
     
@@ -198,15 +229,17 @@ class PitchDetector: ObservableObject {
         do {
             try engine.start()
             isListening = true
-            print("Audio engine started successfully")
+            print("🎼 Audio engine started successfully - listening for pitch input")
         } catch {
-            print("Failed to start audio engine: \(error)")
-            isListening = false
+            print("❌ Failed to start audio engine: \(error)")
+            print("🎭 Falling back to mock pitch detection")
+            isListening = true
+            setupMockPitchDetection()
         }
         #else
         // Mock audio engine start
         isListening = true
-        print("Mock audio engine started")
+        print("🎭 Mock audio engine started - squiggle will show animated frequency changes")
         #endif
     }
     
