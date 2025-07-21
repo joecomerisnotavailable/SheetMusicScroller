@@ -19,6 +19,15 @@ struct SheetMusicScrollerView: View {
         self.sheetMusic = sheetMusic
     }
     
+    /// Platform-specific background color
+    private var platformBackgroundColor: Color {
+        #if os(macOS)
+        Color(NSColor.controlBackgroundColor)
+        #else
+        Color(UIColor.systemGroupedBackground)
+        #endif
+    }
+    
     var body: some View {
         VStack(spacing: 20) {
             // Header with title and composer
@@ -39,13 +48,7 @@ struct SheetMusicScrollerView: View {
             }
         }
         .padding()
-        .background(
-            #if os(macOS)
-            Color(NSColor.controlBackgroundColor)
-            #else
-            Color(UIColor.systemGroupedBackground)
-            #endif
-        )
+        .background(platformBackgroundColor)
         .onDisappear {
             stopPlayback()
             pitchDetector.stopListening()
