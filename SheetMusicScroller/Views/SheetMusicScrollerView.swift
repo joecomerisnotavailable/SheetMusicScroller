@@ -4,11 +4,8 @@ import SwiftUI
 struct SheetMusicScrollerView: View {
     let sheetMusic: SheetMusic
     
-    @State private var currentTime: Double = 0
-    @State private var isPlaying: Bool = false
     @State private var scrollOffset: CGFloat = 0
-    @State private var playbackTimer: Timer?
-    @State private var isPitchMode: Bool = false
+    @State private var scrollTimer: Timer?
     @StateObject private var pitchDetector = PitchDetector()
     
     private let noteSpacing: CGFloat = 60
@@ -33,8 +30,8 @@ struct SheetMusicScrollerView: View {
             // Header with title and composer
             headerView
             
-            // Mode toggle
-            modeToggleView
+            // Mode info
+            modeInfoView
             
             // Main scrolling area
             scrollingMusicView
@@ -42,16 +39,18 @@ struct SheetMusicScrollerView: View {
             // Controls
             controlsView
             
-            // Pitch detection info (when in pitch mode)
-            if isPitchMode {
-                pitchInfoView
-            }
+            // Pitch detection info
+            pitchInfoView
         }
         .padding()
         .background(platformBackgroundColor)
         .onDisappear {
-            stopPlayback()
+            stopScrolling()
             pitchDetector.stopListening()
+        }
+        .onAppear {
+            pitchDetector.startListening()
+            startScrolling()
         }
     }
     
@@ -78,38 +77,20 @@ struct SheetMusicScrollerView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
     
-    private var modeToggleView: some View {
+    private var modeInfoView: some View {
         HStack {
-            Text("Mode:")
+            Text("Live Pitch Detection")
                 .font(.headline)
-            
-            Picker("Playback Mode", selection: $isPitchMode) {
-                Text("Time-based").tag(false)
-                Text("Live Pitch").tag(true)
-            }
-            .pickerStyle(SegmentedPickerStyle())
-            .onChange(of: isPitchMode) { _, newMode in
-                if newMode {
-                    // Switch to pitch mode
-                    stopPlayback()
-                    pitchDetector.startListening()
-                } else {
-                    // Switch to time-based mode
-                    pitchDetector.stopListening()
-                }
-            }
             
             Spacer()
             
-            if isPitchMode {
-                HStack {
-                    Circle()
-                        .fill(pitchDetector.isListening ? .green : .red)
-                        .frame(width: 8, height: 8)
-                    Text(pitchDetector.isListening ? "Listening" : "Not Listening")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+            HStack {
+                Circle()
+                    .fill(pitchDetector.isListening ? .green : .red)
+                    .frame(width: 8, height: 8)
+                Text(pitchDetector.isListening ? "Listening" : "Not Listening")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }
@@ -137,8 +118,7 @@ struct SheetMusicScrollerView: View {
                 currentYPosition: currentSquiggleYPosition,
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
-                tipColor: squiggleColor,
-                isPitchMode: isPitchMode
+                tipColor: squiggleColor
             )
         }
         .frame(height: 200)
@@ -147,56 +127,18 @@ struct SheetMusicScrollerView: View {
     
     private var controlsView: some View {
         HStack {
-            // Play/Pause button (only in time-based mode)
-            if !isPitchMode {
-                Button(action: togglePlayback) {
-                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                        .font(.title2)
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.blue)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(PlainButtonStyle())
-            } else {
-                // Microphone button for pitch mode
-                Button(action: togglePitchListening) {
-                    Image(systemName: pitchDetector.isListening ? "mic.fill" : "mic.slash.fill")
-                        .font(.title2)
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(pitchDetector.isListening ? Color.green : Color.red)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(PlainButtonStyle())
+            // Microphone button for pitch mode
+            Button(action: togglePitchListening) {
+                Image(systemName: pitchDetector.isListening ? "mic.fill" : "mic.slash.fill")
+                    .font(.title2)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(pitchDetector.isListening ? Color.green : Color.red)
+                    .clipShape(Circle())
             }
-            
-            // Time display (only in time-based mode)
-            if !isPitchMode {
-                VStack(alignment: .trailing) {
-                    Text(timeString(currentTime))
-                        .font(.system(.body, design: .monospaced))
-                    
-                    Text("/ \(timeString(sheetMusic.totalDuration))")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundColor(.secondary)
-                }
-            }
+            .buttonStyle(PlainButtonStyle())
             
             Spacer()
-            
-            // Reset button (only in time-based mode)
-            if !isPitchMode {
-                Button(action: resetPlayback) {
-                    Image(systemName: "backward.end.fill")
-                        .font(.title2)
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.gray)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
         }
     }
     
@@ -211,6 +153,15 @@ struct SheetMusicScrollerView: View {
                         .font(.caption)
                         .foregroundColor(.red)
                 }
+            }
+            
+            // Show error message if there is one
+            if let errorMessage = pitchDetector.errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             
             HStack(spacing: 20) {
@@ -247,85 +198,47 @@ struct SheetMusicScrollerView: View {
     }
     
     private var activeNotes: [Note] {
-        sheetMusic.notesAt(time: currentTime)
+        // In pitch mode, we don't have "active" notes based on time
+        // This could be enhanced in the future to show notes that match current pitch
+        return []
     }
     
-    /// Calculate the current Y position of the squiggle tip based on active notes or live pitch
+    /// Calculate the current Y position of the squiggle tip based on live pitch
     private var currentSquiggleYPosition: CGFloat {
         let staffHeight: CGFloat = 120
         let staffCenter = staffHeight / 2
         let lineSpacing = staffHeight / 6
         
-        if isPitchMode {
-            // Use live pitch detection
-            if pitchDetector.currentFrequency > 0 {
-                let pitchPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
-                return staffCenter + (pitchPosition * lineSpacing)
-            } else {
-                // No pitch detected, keep at center
-                return staffCenter
-            }
+        // Use live pitch detection
+        if pitchDetector.currentFrequency > 0 {
+            let pitchPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
+            return staffCenter + (pitchPosition * lineSpacing)
         } else {
-            // Use time-based positioning (original logic)
-            // If there are active notes, use the first one's position
-            if let firstActiveNote = activeNotes.first {
-                return staffCenter + (firstActiveNote.position * lineSpacing)
-            }
-            
-            // If no active notes, interpolate between nearby notes or use a default position
-            let nearbyNotes = sheetMusic.notes.filter { note in
-                abs(note.startTime - currentTime) < 0.5 // Within 0.5 seconds
-            }.sorted { abs($0.startTime - currentTime) < abs($1.startTime - currentTime) }
-            
-            if let nearestNote = nearbyNotes.first {
-                return staffCenter + (nearestNote.position * lineSpacing)
-            }
-            
-            // Default to middle of staff
+            // No pitch detected, keep at center
             return staffCenter
         }
     }
     
     /// Get the current squiggle tip color based on pitch and musical context
     private var squiggleColor: Color {
-        if isPitchMode {
-            // Color based on live pitch detection strength
-            if pitchDetector.currentAmplitude > 0.1 {
-                return .green // Strong signal
-            } else if pitchDetector.currentAmplitude > 0.05 {
-                return .orange // Weak signal
-            } else {
-                return .red // No signal
-            }
-        } else {
-            // Color varies based on pitch range and musical expression (original logic)
-            if let activeNote = activeNotes.first {
-                let pitch = activeNote.position
-                
-                // Color mapping based on pitch height
-                if pitch < -2.5 {
-                    return .purple  // Very high notes
-                } else if pitch < -1.5 {
-                    return .blue    // High notes
-                } else if pitch < -0.5 {
-                    return .green   // Medium-high notes
-                } else if pitch < 0.5 {
-                    return .orange  // Medium notes
-                } else {
-                    return .red     // Lower notes
-                }
-            }
+        // Color based on live pitch detection - vary by frequency and signal strength
+        if pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 {
+            // Color mapping based on detected frequency
+            let staffPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
             
-            // Default red when no active notes
-            return .red
-        }
-    }
-    
-    private func togglePlayback() {
-        if isPlaying {
-            stopPlayback()
+            if staffPosition < -3.0 {
+                return .purple  // Very high frequencies
+            } else if staffPosition < -1.0 {
+                return .blue    // High frequencies  
+            } else if staffPosition < 1.0 {
+                return .green   // Medium frequencies
+            } else if staffPosition < 3.0 {
+                return .orange  // Lower frequencies
+            } else {
+                return .red     // Very low frequencies
+            }
         } else {
-            startPlayback()
+            return .gray // No signal detected
         }
     }
     
@@ -337,37 +250,16 @@ struct SheetMusicScrollerView: View {
         }
     }
     
-    private func startPlayback() {
-        isPlaying = true
-        
-        playbackTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { _ in
-            currentTime += 0.02
+    private func startScrolling() {
+        scrollTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { _ in
+            // Continuous scrolling for the squiggle history
             scrollOffset += scrollSpeed * 0.02
-            
-            // Stop at the end
-            if currentTime >= sheetMusic.totalDuration {
-                stopPlayback()
-                currentTime = sheetMusic.totalDuration
-            }
         }
     }
     
-    private func stopPlayback() {
-        isPlaying = false
-        playbackTimer?.invalidate()
-        playbackTimer = nil
-    }
-    
-    private func resetPlayback() {
-        stopPlayback()
-        currentTime = 0
-        scrollOffset = 0
-    }
-    
-    private func timeString(_ time: Double) -> String {
-        let minutes = Int(time) / 60
-        let seconds = Int(time) % 60
-        return String(format: "%d:%02d", minutes, seconds)
+    private func stopScrolling() {
+        scrollTimer?.invalidate()
+        scrollTimer = nil
     }
 }
 

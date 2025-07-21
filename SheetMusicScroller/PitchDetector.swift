@@ -17,20 +17,20 @@ class PitchDetector: ObservableObject {
     @Published var currentAmplitude: Double = 0.0
     @Published var isListening: Bool = false
     @Published var microphonePermissionGranted: Bool = false
+    @Published var errorMessage: String? = nil
     
     // MARK: - Private Properties
     #if canImport(AudioKit)
-    private var engine: AudioEngine!
+    nonisolated(unsafe) private var engine: AudioEngine!
     private var tracker: PitchTap!
-    private var mic: AudioEngine.InputNode!
+    nonisolated(unsafe) private var mic: AudioEngine.InputNode!
     #endif
     
-    private var permissionTimer: Timer?
-    
     // MARK: - Constants
-    private let minimumAmplitudeThreshold: Double = 0.01
-    private let frequencySmoothing: Double = 0.8
+    private let minimumAmplitudeThreshold: Double = 0.0005  // More sensitive threshold
+    private let frequencySmoothing: Double = 0.3            // More responsive smoothing
     private var smoothedFrequency: Double = 0.0
+    private var smoothedAmplitude: Double = 0.0
     
     // MARK: - Initialization
     init() {
@@ -38,8 +38,7 @@ class PitchDetector: ObservableObject {
     }
     
     deinit {
-        stopListening()
-        permissionTimer?.invalidate()
+        cleanup()
     }
     
     // MARK: - Public Methods
@@ -66,31 +65,43 @@ class PitchDetector: ObservableObject {
     func stopListening() {
         guard isListening else { return }
         
+        // Stop the pitch tracker first (main actor context)
         #if canImport(AudioKit)
-        engine?.stop()
+        tracker?.stop()
         #endif
         
+        // Perform thread-safe cleanup
+        cleanup()
+        
+        // Update main actor-isolated state
         isListening = false
         currentFrequency = 0.0
         currentPitch = ""
         currentAmplitude = 0.0
+        errorMessage = nil
     }
     
     /// Convert frequency to staff position for sheet music display
-    /// Returns a position where 0 is the center of the staff
+    /// Returns a position where 0 is the center line of the treble staff (B4)
+    /// Negative values are higher on the staff, positive are lower
     func frequencyToStaffPosition(_ frequency: Double) -> CGFloat {
         guard frequency > 0 else { return 0 }
         
         // Convert frequency to MIDI note number
         let midiNote = frequencyToMIDI(frequency)
         
-        // Map MIDI note to staff position
-        // Middle C (C4) = MIDI 60, should be around position 0 (center of treble staff)
-        // Each semitone is approximately 0.15 staff line spacing
-        let middleC: Double = 60
-        let staffPosition = (midiNote - middleC) * 0.15
+        // For treble clef staff positioning:
+        // B4 (MIDI 71) = center line of staff (position 0)
+        // Each staff line/space = 1 position unit
+        // D4 (MIDI 62) should be at position 4.5 (just below the staff)
+        let trebleStaffCenter: Double = 71  // B4 is the middle line of treble staff
+        let staffPosition = (trebleStaffCenter - midiNote) * 0.5  // Each semitone = 0.5 staff spacing
         
-        return CGFloat(staffPosition)
+        // Constrain to reasonable staff bounds for display
+        // Allow range from about 2 octaves above to 1 octave below the staff
+        let constrainedPosition = max(-8.0, min(8.0, staffPosition))
+        
+        return CGFloat(constrainedPosition)
     }
     
     /// Convert frequency to MIDI note number
@@ -114,98 +125,173 @@ class PitchDetector: ObservableObject {
     
     // MARK: - Private Methods
     
+    /// Thread-safe cleanup that can be called from deinit
+    /// Only performs operations that don't require main actor isolation
+    nonisolated private func cleanup() {
+        #if canImport(AudioKit)
+        engine?.stop()
+        // Note: tracker.stop() should be called from main actor context in stopListening()
+        #endif
+    }
+    
     private func setupAudio() {
         #if canImport(AudioKit)
         setupAudioKit()
         #else
-        // Fallback for when AudioKit is not available
-        print("AudioKit not available - using mock pitch detection")
-        setupMockPitchDetection()
+        // AudioKit is not available (e.g., in simulator)
+        errorMessage = "AudioKit is not available on this platform. Real-time pitch detection requires AudioKit and is only supported on physical devices."
+        print("❌ AudioKit not available - pitch detection unavailable")
         #endif
     }
     
     #if canImport(AudioKit)
     private func setupAudioKit() {
         do {
-            engine = AudioEngine()
-            mic = engine.input
+            // Reset any existing audio session configuration
+            let audioSession = AVAudioSession.sharedInstance()
             
+            // Configure audio session for high-quality recording
+            try audioSession.setCategory(.playAndRecord, 
+                                       mode: .measurement, 
+                                       options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
+            try audioSession.setActive(true)
+            
+            // Set a high sample rate for better pitch detection accuracy
+            try audioSession.setPreferredSampleRate(44100.0)
+            try audioSession.setPreferredIOBufferDuration(0.005) // 5ms buffer for low latency
+            
+            print("🎤 Audio session configured: sample rate \(audioSession.sampleRate), buffer duration \(audioSession.ioBufferDuration)")
+            
+            // Initialize AudioKit engine
+            engine = AudioEngine()
+            guard let input = engine.input else {
+                print("❌ AudioKit input node unavailable")
+                return
+            }
+            mic = input
+            
+            // Create pitch tracker with optimized settings
             tracker = PitchTap(mic) { [weak self] pitch, amplitude in
                 DispatchQueue.main.async {
-                    guard let self = self else { return }
-                    self.updatePitchData(frequency: pitch[0], amplitude: amplitude[0])
+                    guard let self = self, self.isListening else { return }
+                    
+                    // Handle both single values and arrays from AudioKit
+                    let freq = pitch.count > 0 ? pitch[0] : 0.0
+                    let amp = amplitude.count > 0 ? amplitude[0] : 0.0
+                    
+                    // Debug actual microphone input detection
+                    if amp > 0.0001 {
+                        print("🎤 Raw input: \(String(format: "%.1f", freq)) Hz, \(String(format: "%.4f", amp)) amplitude")
+                    }
+                    
+                    self.updatePitchData(frequency: freq, amplitude: amp)
                 }
             }
             
+            print("✅ AudioKit pitch detection initialized successfully")
+            
         } catch {
-            print("Failed to setup AudioKit: \(error)")
-            setupMockPitchDetection()
+            print("❌ Failed to setup AudioKit: \(error.localizedDescription)")
+            print("   Error details: \(error)")
         }
     }
     #endif
     
-    private func setupMockPitchDetection() {
-        // For development/testing when AudioKit is not available
-        // This will generate mock pitch data
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self, self.isListening else { return }
-            
-            // Generate some mock frequency data (440 Hz A4 with some variation)
-            let baseFreq = 440.0
-            let variation = Double.random(in: -50...50)
-            let mockFrequency = baseFreq + variation
-            let mockAmplitude = 0.3
-            
-            DispatchQueue.main.async {
-                self.updatePitchData(frequency: mockFrequency, amplitude: mockAmplitude)
-            }
-        }
-    }
-    
     private func updatePitchData(frequency: Double, amplitude: Double) {
-        currentAmplitude = amplitude
+        // Apply smoothing to amplitude for more stable signal detection
+        smoothedAmplitude = (smoothedAmplitude * 0.7) + (amplitude * 0.3)
+        currentAmplitude = smoothedAmplitude
         
-        // Only update frequency if amplitude is above threshold
-        if amplitude > minimumAmplitudeThreshold {
-            // Apply smoothing to reduce jitter
+        // Only process frequencies in a reasonable musical range
+        if smoothedAmplitude > minimumAmplitudeThreshold && frequency > 80 && frequency < 2000 {
+            // Apply frequency smoothing for stable pitch detection
             smoothedFrequency = (smoothedFrequency * frequencySmoothing) + (frequency * (1.0 - frequencySmoothing))
             currentFrequency = smoothedFrequency
             currentPitch = midiToPitchName(frequencyToMIDI(smoothedFrequency))
+            
+            // Log successful pitch detection with less spam
+            if Int(smoothedFrequency) % 10 == 0 || smoothedFrequency != frequency {
+                print("🎵 Detected: \(Int(smoothedFrequency)) Hz → \(currentPitch) (amp: \(String(format: "%.3f", smoothedAmplitude)))")
+            }
         } else {
-            // Fade to silence
-            currentFrequency = 0.0
-            currentPitch = ""
+            // Gradual fade when signal drops
+            smoothedFrequency *= 0.85
+            if smoothedFrequency < 80 {
+                currentFrequency = 0.0
+                currentPitch = ""
+            } else {
+                currentFrequency = smoothedFrequency
+                currentPitch = midiToPitchName(frequencyToMIDI(smoothedFrequency))
+            }
         }
     }
     
     private func startAudioEngine() {
         #if canImport(AudioKit)
+        guard let engine = engine, let tracker = tracker else {
+            let error = "Audio components not initialized. AudioKit setup failed."
+            print("❌ \(error)")
+            errorMessage = error
+            return
+        }
+        
         do {
+            // Ensure audio session is still active
+            try AVAudioSession.sharedInstance().setActive(true)
+            
+            // Start the audio engine
             try engine.start()
+            
+            // Start pitch tracking
+            tracker.start()
+            
             isListening = true
-            print("Audio engine started successfully")
+            errorMessage = nil
+            print("🎼 ✅ Audio engine started successfully - microphone is now active")
+            
+            // Give a moment for the audio engine to stabilize
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                print("🎼 Audio engine should now be detecting microphone input")
+            }
+            
         } catch {
-            print("Failed to start audio engine: \(error)")
-            isListening = false
+            let errorMsg = "Failed to start audio engine: \(error.localizedDescription)"
+            print("❌ \(errorMsg)")
+            errorMessage = errorMsg
         }
         #else
-        // Mock audio engine start
-        isListening = true
-        print("Mock audio engine started")
+        // AudioKit not available
+        let error = "AudioKit not available on this platform. Real-time pitch detection requires AudioKit."
+        print("❌ \(error)")
+        errorMessage = error
         #endif
     }
     
     private func checkMicrophonePermission(completion: @escaping (Bool) -> Void) {
-        switch AVAudioSession.sharedInstance().recordPermission {
+        let recordPermission = AVAudioSession.sharedInstance().recordPermission
+        print("🎤 Current microphone permission status: \(recordPermission)")
+        
+        switch recordPermission {
         case .granted:
+            print("✅ Microphone permission already granted")
             completion(true)
         case .denied:
+            print("❌ Microphone permission denied")
             completion(false)
         case .undetermined:
+            print("🎤 Requesting microphone permission...")
             AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                completion(granted)
+                DispatchQueue.main.async {
+                    if granted {
+                        print("✅ Microphone permission granted by user")
+                    } else {
+                        print("❌ Microphone permission denied by user")
+                    }
+                    completion(granted)
+                }
             }
         @unknown default:
+            print("⚠️ Unknown microphone permission state")
             completion(false)
         }
     }
