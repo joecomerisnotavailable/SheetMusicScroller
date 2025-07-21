@@ -118,8 +118,7 @@ struct SheetMusicScrollerView: View {
                 currentYPosition: currentSquiggleYPosition,
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
-                tipColor: squiggleColor,
-                isPitchMode: true
+                tipColor: squiggleColor
             )
         }
         .frame(height: 200)
