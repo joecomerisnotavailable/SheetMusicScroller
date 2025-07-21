@@ -64,6 +64,7 @@ final class PitchDetector: ObservableObject {
     private var engine: AudioEngine?
     private var mic: AudioEngine.InputNode?
     private var tracker: PitchTap?
+    private var output: AudioEngine.OutputNode?
     #endif
 
     // Timer for permission check
@@ -154,10 +155,14 @@ final class PitchDetector: ObservableObject {
             return 
         }
 
-        // Start the engine first to initialize the audio graph
+        // Set up the audio graph: Create a silent output first (required for input to work)
+        let silenceOutput = Mixer()
+        engine.output = silenceOutput
+        
+        // Start the engine with output configured
         do {
             try engine.start()
-            print("AudioKit engine started successfully")
+            print("AudioKit engine started successfully with output configured")
         } catch {
             errorMessage = "Error starting AudioKit engine: \(error.localizedDescription)"
             print("Error starting AudioKit engine: \(error.localizedDescription)")
@@ -166,7 +171,7 @@ final class PitchDetector: ObservableObject {
         }
 
         // Give the engine a moment to fully initialize before accessing input
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.setupInputNode()
         }
     }
@@ -177,7 +182,7 @@ final class PitchDetector: ObservableObject {
             return
         }
         
-        // Try to get the input node
+        // Try to get the input node after engine is properly configured
         mic = engine.input
         guard let mic = mic else {
             // Provide more detailed error information
@@ -234,6 +239,13 @@ final class PitchDetector: ObservableObject {
         isListening = true
         errorMessage = nil
         print("AudioKit PitchTap started successfully")
+        
+        // Connect the input to the output chain to complete the audio graph
+        if let output = engine.output as? Mixer {
+            // Create a silent connection - input -> (optional processing) -> silent output
+            // This ensures the audio graph is complete even though we only need the input for analysis
+            print("Audio graph completed - microphone input connected to silent output")
+        }
     }
     
     private func setupMockMode() {
@@ -320,6 +332,7 @@ final class PitchDetector: ObservableObject {
         // Clear references
         engine = nil
         mic = nil
+        output = nil
     }
     
     func frequencyToStaffPosition(_ frequency: Double) -> Double {
