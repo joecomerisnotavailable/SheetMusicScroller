@@ -18,6 +18,7 @@
 		3D0001181234567890123456 /* SquiggleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D0001171234567890123456 /* SquiggleView.swift */; };
 		3D00011A1234567890123456 /* ScoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D0001191234567890123456 /* ScoreView.swift */; };
 		3D00011C1234567890123456 /* SheetMusicScrollerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D00011B1234567890123456 /* SheetMusicScrollerView.swift */; };
+		3D00011E1234567890123456 /* PitchDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D00011D1234567890123456 /* PitchDetector.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 		3D0001171234567890123456 /* SquiggleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquiggleView.swift; sourceTree = "<group>"; };
 		3D0001191234567890123456 /* ScoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreView.swift; sourceTree = "<group>"; };
 		3D00011B1234567890123456 /* SheetMusicScrollerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetMusicScrollerView.swift; sourceTree = "<group>"; };
+		3D00011D1234567890123456 /* PitchDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchDetector.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,9 +69,10 @@
 			children = (
 				3D0000FF1234567890123456 /* SheetMusicScrollerApp.swift */,
 				3D0001011234567890123456 /* ContentView.swift */,
+				3D00011D1234567890123456 /* PitchDetector.swift */,
 				3D00010E1234567890123456 /* Models */,
-				3D00011D1234567890123456 /* Views */,
-				3D00011E1234567890123456 /* Data */,
+				3D00011F1234567890123456 /* Views */,
+				3D0001201234567890123456 /* Data */,
 				3D0001031234567890123456 /* Assets.xcassets */,
 				3D0001051234567890123456 /* Preview Content */,
 			);
@@ -93,7 +96,7 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
-		3D00011D1234567890123456 /* Views */ = {
+		3D00011F1234567890123456 /* Views */ = {
 			isa = PBXGroup;
 			children = (
 				3D0001151234567890123456 /* NoteView.swift */,
@@ -104,7 +107,7 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		3D00011E1234567890123456 /* Data */ = {
+		3D0001201234567890123456 /* Data */ = {
 			isa = PBXGroup;
 			children = (
 				3D0001131234567890123456 /* BachAllemandeData.swift */,
@@ -190,6 +193,7 @@
 				3D0001181234567890123456 /* SquiggleView.swift in Sources */,
 				3D00011A1234567890123456 /* ScoreView.swift in Sources */,
 				3D00011C1234567890123456 /* SheetMusicScrollerView.swift in Sources */,
+				3D00011E1234567890123456 /* PitchDetector.swift in Sources */,
 				3D0001001234567890123456 /* SheetMusicScrollerApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

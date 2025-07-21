@@ -6,9 +6,19 @@ struct SheetMusicScrollerApp: App {
         WindowGroup {
             ContentView()
         }
+        .windowConfiguration()
+    }
+}
+
+extension Scene {
+    /// Platform-specific window configuration
+    func windowConfiguration() -> some Scene {
         #if os(macOS)
-        .windowResizability(.contentSize)
-        .defaultSize(width: 1000, height: 700)
+        self
+            .windowResizability(.contentSize)
+            .defaultSize(width: 1000, height: 700)
+        #else
+        self
         #endif
     }
 }
