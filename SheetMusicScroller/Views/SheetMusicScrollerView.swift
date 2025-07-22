@@ -157,11 +157,27 @@ struct SheetMusicScrollerView: View {
             
             // Show error message if there is one
             if let errorMessage = pitchDetector.errorMessage {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .padding(.vertical, 4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    // Add retry button for certain error types
+                    if errorMessage.contains("input") || errorMessage.contains("unavailable") {
+                        HStack {
+                            Button("Retry Audio Setup") {
+                                pitchDetector.retryAudioSetup()
+                            }
+                            .font(.caption)
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                            
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
             }
             
             HStack(spacing: 20) {
@@ -212,7 +228,7 @@ struct SheetMusicScrollerView: View {
         // Use live pitch detection
         if pitchDetector.currentFrequency > 0 {
             let pitchPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
-            return staffCenter + (pitchPosition * lineSpacing)
+            return staffCenter + (CGFloat(pitchPosition) * lineSpacing)
         } else {
             // No pitch detected, keep at center
             return staffCenter
