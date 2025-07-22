@@ -56,9 +56,29 @@ let staffPosition = a4Position - (midi - a4Midi) * semitoneSpacing
 .position(x: 25, y: staffHeight / 2) // Center line (position 0.0 for B4/Bb4)
 ```
 
+### 5. Oversimplified Frequency-to-Staff Mapping (Fixed in commit [CURRENT])
+**Error**: Used linear 0.3 semitone spacing instead of proper musical intervals
+**Issue**: In music theory, each staff position (line to space) is either 1 semitone OR 2 semitones (whole tone), never fractional values like 0.3 semitones
+**Files Modified**:
+- `SheetMusicScroller/PitchDetector.swift` - Lines 339-361: Replace linear mapping with proper treble clef note positions
+**Code Reference**:
+```swift
+// BEFORE (incorrect - linear spacing):
+let semitoneSpacing = 0.3  // Each semitone ≈ 0.3 staff position units
+let staffPosition = a4Position - (midi - a4Midi) * semitoneSpacing
+// AFTER (correct - discrete note positions with interpolation):
+let notePositions: [Int: Double] = [
+    69: 0.5,   // A4 - second space 
+    70: 0.0,   // Bb4 - center line (D Minor)
+    74: -1.0,  // D5 - fourth line
+    // ... other treble clef positions
+]
+```
+
 **Do not reproduce these errors:**
 - Do not invert frequency-to-screen position mapping (higher frequencies must appear higher on screen)
 - Do not use incorrect reference notes in MIDI calculations
 - Do not ignore coordinate system conventions (lower Y values = higher on screen)
-- Do not use incorrect scale factors for frequency-to-staff-position mapping (use 0.3, not 0.5)
+- Do not use linear semitone spacing (like 0.3) for frequency-to-staff mapping - use discrete note positions
 - Do not position key signature symbols arbitrarily - they must align with actual staff note positions
+- Do not ignore musical theory: staff positions represent either 1 or 2 semitone intervals, never fractional

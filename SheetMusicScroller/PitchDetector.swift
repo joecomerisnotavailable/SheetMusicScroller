@@ -342,22 +342,53 @@ final class PitchDetector: ObservableObject {
         // Convert frequency to MIDI note number
         let midi = 69 + 12 * log2(frequency / 440.0)
         
-        // Precise treble clef mapping derived from standard musical frequencies:
-        // Based on linear regression of actual treble clef note positions
-        // Each staff position corresponds to specific semitone intervals
-        //
-        // Reference points (user requirements):
-        // - A4 (MIDI 69, 440 Hz) → position 0.5 (space above second line)
-        // - D5 (MIDI 74, 587.33 Hz) → position -1.0 (second line down from top)
-        //
-        // Derived formula: position ≈ -0.3 * midi + 21.1
-        // Simplified using A4 reference: position = 0.5 - (midi - 69) * 0.3
-        let a4Midi = 69.0
-        let a4Position = 0.5
-        let semitoneSpacing = 0.3  // Each semitone ≈ 0.3 staff position units
-        let staffPosition = a4Position - (midi - a4Midi) * semitoneSpacing
+        // Proper treble clef mapping based on musical theory
+        // In D Minor: Only B is flattened to Bb
+        // Each staff position represents either 1 semitone or 2 semitones (whole tone)
+        // Staff positions (lower numbers = higher on staff):
+        // -2.0: Top line (F5)
+        // -1.5: Fourth space (E5) 
+        // -1.0: Fourth line (D5) ← 587.33 Hz requirement
+        // -0.5: Third space (C5)
+        //  0.0: Center line (Bb4 in D Minor)
+        //  0.5: Second space (A4) ← 440 Hz requirement
+        //  1.0: Second line (G4)  
+        //  1.5: First space (F4)
+        //  2.0: Bottom line (E4)
         
-        return staffPosition
+        let notePositions: [Int: Double] = [
+            64: 2.0,   // E4 - bottom line
+            65: 1.5,   // F4 - first space
+            67: 1.0,   // G4 - second line
+            69: 0.5,   // A4 - second space (440 Hz requirement)
+            70: 0.0,   // Bb4 - center line (D Minor key signature)
+            72: -0.5,  // C5 - third space
+            74: -1.0,  // D5 - fourth line (587.33 Hz requirement)
+            76: -1.5,  // E5 - fourth space
+            77: -2.0,  // F5 - top line
+        ]
+        
+        // Round MIDI to nearest integer to find exact note
+        let nearestMidi = Int(round(midi))
+        
+        // Find the position, interpolate if between defined notes
+        if let exactPosition = notePositions[nearestMidi] {
+            return exactPosition
+        }
+        
+        // Interpolate between nearest defined positions
+        let lowerMidi = notePositions.keys.filter { $0 <= nearestMidi }.max() ?? 64
+        let upperMidi = notePositions.keys.filter { $0 >= nearestMidi }.min() ?? 77
+        
+        guard let lowerPos = notePositions[lowerMidi],
+              let upperPos = notePositions[upperMidi],
+              upperMidi != lowerMidi else {
+            return notePositions[nearestMidi] ?? 0.0
+        }
+        
+        // Linear interpolation between defined points
+        let fraction = (midi - Double(lowerMidi)) / Double(upperMidi - lowerMidi)
+        return lowerPos + fraction * (upperPos - lowerPos)
     }
     #else
     // Stub if AudioKit not available
