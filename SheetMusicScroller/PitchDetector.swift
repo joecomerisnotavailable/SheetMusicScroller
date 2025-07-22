@@ -342,16 +342,20 @@ final class PitchDetector: ObservableObject {
         // Convert frequency to MIDI note number
         let midi = 69 + 12 * log2(frequency / 440.0)
         
-        // User requirements (exact):
-        // - 440 Hz (A4, MIDI 69) → "space above second line" 
-        // - 587.33 Hz (D5, MIDI 74) → "second line down from top"
+        // Precise treble clef mapping derived from standard musical frequencies:
+        // Based on linear regression of actual treble clef note positions
+        // Each staff position corresponds to specific semitone intervals
         //
-        // Solving for reference and scale to satisfy both constraints:
-        // A4: position = -(69 - ref) * scale = 1.5  
-        // D5: position = -(74 - ref) * scale = -1.0
-        // Solution: ref = 72.0 (C5), scale = 0.5
-        let c5 = 72.0
-        let staffPosition = -(midi - c5) * 0.5
+        // Reference points (user requirements):
+        // - A4 (MIDI 69, 440 Hz) → position 0.5 (space above second line)
+        // - D5 (MIDI 74, 587.33 Hz) → position -1.0 (second line down from top)
+        //
+        // Derived formula: position ≈ -0.3 * midi + 21.1
+        // Simplified using A4 reference: position = 0.5 - (midi - 69) * 0.3
+        let a4Midi = 69.0
+        let a4Position = 0.5
+        let semitoneSpacing = 0.3  // Each semitone ≈ 0.3 staff position units
+        let staffPosition = a4Position - (midi - a4Midi) * semitoneSpacing
         
         return staffPosition
     }

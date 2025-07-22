@@ -52,14 +52,14 @@ struct ScoreView: View {
                 .foregroundColor(.black)
             
             // Key signature (D minor - Bb)
-            VStack {
+            // Position the flat symbol on the center line (B4/Bb4 position)
+            ZStack {
                 Text("♭")
                     .font(.system(size: 20))
                     .foregroundColor(.black)
-                    .offset(y: -staffHeight * 0.15) // Position on B line
-                Spacer()
+                    .position(x: 25, y: staffHeight / 2) // Center line (position 0.0 for B4/Bb4)
             }
-            .frame(height: staffHeight)
+            .frame(width: 30, height: staffHeight)
             
             // Visual separator line for the gutter
             Rectangle()
