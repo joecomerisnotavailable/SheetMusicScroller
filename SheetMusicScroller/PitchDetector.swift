@@ -332,7 +332,6 @@ final class PitchDetector: ObservableObject {
         // Clear references
         engine = nil
         mic = nil
-        output = nil
     }
     
     func frequencyToStaffPosition(_ frequency: Double) -> Double {
