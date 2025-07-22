@@ -26,7 +26,8 @@ struct ContentView: View {
             VStack {
                 platformTitleView
                 
-                SheetMusicScrollerView(sheetMusic: BachAllemandeData.bachAllemande)
+                // 🧪 MOCK MODE: Use test data instead of Bach data
+                SheetMusicScrollerView(sheetMusic: CMajorScaleTestData.cMajorScaleTest)
             }
             .navigationTitle("Sheet Music Scroller")
             .modifier(NavigationSubtitleModifier(subtitle: navigationSubtitle))
