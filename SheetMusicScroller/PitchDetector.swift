@@ -334,18 +334,11 @@ final class PitchDetector: ObservableObject {
         mic = nil
     }
     
-    func frequencyToStaffPosition(_ frequency: Double) -> Double {
+    func frequencyToStaffPosition(_ frequency: Double, clef: Clef = .treble) -> Double {
         guard frequency > 0 else { return 0.0 }
         
-        // Convert frequency to MIDI note number
-        let midi = 69 + 12 * log2(frequency / 440.0)
-        
-        // Reference: Middle C (C4) is MIDI note 60, which should be at position 0
-        // Each staff line/space represents a step (0.5 staff positions)
-        let middleC = 60.0
-        let staffPosition = (midi - middleC) * 0.5
-        
-        return staffPosition
+        let context = MusicContext(keySignature: "C major", clef: clef, a4Reference: 440.0)
+        return StaffPositionMapper.frequencyToStaffPosition(frequency, context: context)
     }
     #else
     // Stub if AudioKit not available
@@ -357,8 +350,9 @@ final class PitchDetector: ObservableObject {
         // Do nothing
     }
     
-    func frequencyToStaffPosition(_ frequency: Double) -> Double {
-        return 0.0
+    func frequencyToStaffPosition(_ frequency: Double, clef: Clef = .treble) -> Double {
+        let context = MusicContext(keySignature: "C major", clef: clef, a4Reference: 440.0)
+        return StaffPositionMapper.frequencyToStaffPosition(frequency, context: context)
     }
     #endif
 
