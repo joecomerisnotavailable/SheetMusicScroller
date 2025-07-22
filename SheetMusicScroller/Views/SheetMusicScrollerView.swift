@@ -65,11 +65,11 @@ struct SheetMusicScrollerView: View {
                 .foregroundColor(.secondary)
             
             HStack {
-                Text("Tempo: \(Int(sheetMusic.tempo)) BPM")
+                Text("Tempo: \(Int(sheetMusic.musicContext.tempo)) BPM")
                 Text("•")
                 Text(sheetMusic.timeSignature)
                 Text("•")
-                Text(sheetMusic.keySignature)
+                Text(sheetMusic.musicContext.keySignature)
             }
             .font(.caption)
             .foregroundColor(.secondary)
@@ -104,7 +104,7 @@ struct SheetMusicScrollerView: View {
             
             // Scrolling score with fixed gutter
             ScoreView(
-                notes: sheetMusic.notes,
+                sheetMusic: sheetMusic,
                 activeNotes: Set(activeNotes.map { $0.id }),
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
@@ -213,7 +213,7 @@ struct SheetMusicScrollerView: View {
         .cornerRadius(8)
     }
     
-    private var activeNotes: [Note] {
+    private var activeNotes: [TimedNote] {
         // In pitch mode, we don't have "active" notes based on time
         // This could be enhanced in the future to show notes that match current pitch
         return []
@@ -227,7 +227,7 @@ struct SheetMusicScrollerView: View {
         
         // Use live pitch detection
         if pitchDetector.currentFrequency > 0 {
-            let pitchPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
+            let pitchPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency, clef: sheetMusic.musicContext.clef)
             return staffCenter + (CGFloat(pitchPosition) * lineSpacing)
         } else {
             // No pitch detected, keep at center
@@ -240,7 +240,7 @@ struct SheetMusicScrollerView: View {
         // Color based on live pitch detection - vary by frequency and signal strength
         if pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 {
             // Color mapping based on detected frequency
-            let staffPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
+            let staffPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency, clef: sheetMusic.musicContext.clef)
             
             if staffPosition < -3.0 {
                 return .purple  // Very high frequencies

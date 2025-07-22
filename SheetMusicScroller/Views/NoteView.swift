@@ -1,14 +1,16 @@
 import SwiftUI
 
-/// View that renders a single musical note
+/// View that renders a single musical note using the new mapping system
 struct NoteView: View {
-    let note: Note
+    let timedNote: TimedNote
+    let musicContext: MusicContext
     let isActive: Bool
     let squiggleColor: Color?
     let scale: CGFloat
     
-    init(note: Note, isActive: Bool = false, squiggleColor: Color? = nil, scale: CGFloat = 1.0) {
-        self.note = note
+    init(timedNote: TimedNote, musicContext: MusicContext, isActive: Bool = false, squiggleColor: Color? = nil, scale: CGFloat = 1.0) {
+        self.timedNote = timedNote
+        self.musicContext = musicContext
         self.isActive = isActive
         self.squiggleColor = squiggleColor
         self.scale = scale
@@ -22,20 +24,16 @@ struct NoteView: View {
                 .frame(width: noteSize, height: noteSize)
             
             // Accidental symbols (sharp/flat)
-            if note.isSharp {
-                Text("♯")
-                    .font(.system(size: noteSize * 0.8))
-                    .foregroundColor(noteColor)
-                    .offset(x: -noteSize * 0.8, y: 0)
-            } else if note.isFlat {
-                Text("♭")
+            let accidental = timedNote.accidentalDisplay(in: musicContext)
+            if !accidental.isEmpty {
+                Text(accidental)
                     .font(.system(size: noteSize * 0.8))
                     .foregroundColor(noteColor)
                     .offset(x: -noteSize * 0.8, y: 0)
             }
             
             // Note stem (for eighth and sixteenth notes)
-            if note.duration <= 0.25 {
+            if timedNote.note.noteValue.rawValue <= 0.25 {
                 Rectangle()
                     .fill(noteColor)
                     .frame(width: 1.5, height: noteSize * 3)
@@ -43,7 +41,7 @@ struct NoteView: View {
             }
             
             // Beams for sixteenth notes
-            if note.duration <= 0.125 {
+            if timedNote.note.noteValue.rawValue <= 0.125 {
                 Rectangle()
                     .fill(noteColor)
                     .frame(width: noteSize * 0.6, height: 2)
@@ -71,17 +69,37 @@ struct NoteView: View {
     
     private var stemDirection: CGFloat {
         // Stems go up for notes below middle staff line, down for notes above
-        return note.position > 0 ? -1 : 1
+        let position = timedNote.staffPosition(in: musicContext)
+        return position > 0 ? -1 : 1
     }
 }
 
 #Preview {
+    let context = MusicContext(keySignature: "C major", clef: .treble, tempo: 120)
+    
     VStack(spacing: 20) {
-        NoteView(note: Note.quarter(pitch: "C4", startTime: 0, position: 0))
-        NoteView(note: Note.eighth(pitch: "F#4", startTime: 0, position: -1, isSharp: true))
-        NoteView(note: Note.sixteenth(pitch: "Bb4", startTime: 0, position: -0.5, isFlat: true))
-        NoteView(note: Note.quarter(pitch: "G4", startTime: 0, position: 0.5), isActive: true)
-        NoteView(note: Note.eighth(pitch: "D4", startTime: 0, position: 1), squiggleColor: .orange)
+        NoteView(
+            timedNote: TimedNote(note: Note.quarter("C4"), startTime: 0),
+            musicContext: context
+        )
+        NoteView(
+            timedNote: TimedNote(note: Note.eighth("F#4"), startTime: 0),
+            musicContext: context
+        )
+        NoteView(
+            timedNote: TimedNote(note: Note.sixteenth("Bb4"), startTime: 0),
+            musicContext: context
+        )
+        NoteView(
+            timedNote: TimedNote(note: Note.quarter("G4"), startTime: 0),
+            musicContext: context,
+            isActive: true
+        )
+        NoteView(
+            timedNote: TimedNote(note: Note.eighth("D4"), startTime: 0),
+            musicContext: context,
+            squiggleColor: .orange
+        )
     }
     .padding()
 }

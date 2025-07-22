@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// View that renders a musical staff with separated fixed gutter and scrolling notes
+/// View that renders a musical staff with separated fixed gutter and scrolling notes using the new mapping system
 struct ScoreView: View {
-    let notes: [Note]
+    let sheetMusic: SheetMusic
     let activeNotes: Set<UUID>
     let scrollOffset: CGFloat
     let staffHeight: CGFloat = 120
@@ -11,8 +11,8 @@ struct ScoreView: View {
     let squiggleX: CGFloat        // X position of the squiggle for pass/fail detection
     let squiggleColor: Color      // Current squiggle tip color
     
-    init(notes: [Note], activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0, squiggleX: CGFloat = 80, squiggleColor: Color = .red) {
-        self.notes = notes
+    init(sheetMusic: SheetMusic, activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0, squiggleX: CGFloat = 80, squiggleColor: Color = .red) {
+        self.sheetMusic = sheetMusic
         self.activeNotes = activeNotes
         self.scrollOffset = scrollOffset
         self.squiggleX = squiggleX
@@ -31,7 +31,7 @@ struct ScoreView: View {
             }
             .frame(height: staffHeight)
             
-            // Fixed gutter with treble clef and key signature
+            // Fixed gutter with clef and key signature
             HStack {
                 fixedGutterView
                 Spacer()
@@ -46,20 +46,13 @@ struct ScoreView: View {
     
     private var fixedGutterView: some View {
         HStack(spacing: 10) {
-            // Treble clef symbol
-            Text("𝄞")
+            // Clef symbol
+            Text(clefSymbol)
                 .font(.system(size: 60))
                 .foregroundColor(.black)
             
-            // Key signature (D minor - Bb)
-            VStack {
-                Text("♭")
-                    .font(.system(size: 20))
-                    .foregroundColor(.black)
-                    .offset(y: -staffHeight * 0.15) // Position on B line
-                Spacer()
-            }
-            .frame(height: staffHeight)
+            // Key signature display (simplified for now)
+            keySignatureView
             
             // Visual separator line for the gutter
             Rectangle()
@@ -70,29 +63,61 @@ struct ScoreView: View {
         .background(Color.white.opacity(0.9))
     }
     
+    private var clefSymbol: String {
+        switch sheetMusic.musicContext.clef {
+        case .treble: return "𝄞"
+        case .bass: return "𝄢"
+        case .alto: return "𝄡"
+        case .tenor: return "𝄡"  // Tenor clef uses same symbol as alto, just positioned differently
+        }
+    }
+    
+    private var keySignatureView: some View {
+        VStack {
+            // Simplified key signature display - just show if it contains sharps or flats
+            if sheetMusic.musicContext.keySignature.contains("♯") || sheetMusic.musicContext.keySignature.contains("#") {
+                Text("♯")
+                    .font(.system(size: 20))
+                    .foregroundColor(.black)
+                    .offset(y: -staffHeight * 0.1)
+            } else if sheetMusic.musicContext.keySignature.contains("♭") || sheetMusic.musicContext.keySignature.contains("b") {
+                Text("♭")
+                    .font(.system(size: 20))
+                    .foregroundColor(.black)
+                    .offset(y: -staffHeight * 0.15)
+            }
+            Spacer()
+        }
+        .frame(height: staffHeight)
+    }
+    
     private var scrollingNotesView: some View {
         // Notes positioned on the staff - they scroll horizontally
-        ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
+        ForEach(Array(sheetMusic.timedNotes.enumerated()), id: \.element.id) { index, timedNote in
             let xPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
-            let yPosition = noteYPosition(for: note.position)
+            let staffPosition = timedNote.staffPosition(in: sheetMusic.musicContext)
+            let yPosition = noteYPosition(for: staffPosition)
             let hasPassedSquiggle = xPosition <= squiggleX
             
             Group {
                 NoteView(
-                    note: note,
-                    isActive: activeNotes.contains(note.id),
+                    timedNote: timedNote,
+                    musicContext: sheetMusic.musicContext,
+                    isActive: activeNotes.contains(timedNote.id),
                     squiggleColor: hasPassedSquiggle ? squiggleColor : nil,
                     scale: 1.0
                 )
                 .position(x: xPosition, y: yPosition)
                 
-                // Ledger lines for notes above or below the staff
-                if needsLedgerLines(for: note.position) {
-                    ForEach(ledgerLinePositions(for: note.position), id: \.self) { lineY in
+                // Ledger lines for notes above or below the staff using new mapping system
+                let ledgerLines = StaffPositionMapper.getLedgerLinesCount(for: staffPosition)
+                if ledgerLines > 0 {
+                    let ledgerPositions = StaffPositionMapper.getLedgerLinePositions(for: staffPosition)
+                    ForEach(Array(ledgerPositions.enumerated()), id: \.offset) { _, linePosition in
                         Rectangle()
                             .fill(Color.black)
                             .frame(width: 20, height: 1)
-                            .position(x: xPosition, y: lineY)
+                            .position(x: xPosition, y: noteYPosition(for: linePosition))
                     }
                 }
             }
@@ -101,56 +126,34 @@ struct ScoreView: View {
     }
     
     // Convert note position to Y coordinate on staff
-    private func noteYPosition(for position: CGFloat) -> CGFloat {
+    private func noteYPosition(for position: Double) -> CGFloat {
         let staffCenter = staffHeight / 2
         let lineSpacing = staffHeight / 6
-        return staffCenter + (position * lineSpacing)
-    }
-    
-    // Determine if a note needs ledger lines
-    private func needsLedgerLines(for position: CGFloat) -> Bool {
-        return position < -2.5 || position > 2.5
-    }
-    
-    // Calculate positions for ledger lines
-    private func ledgerLinePositions(for position: CGFloat) -> [CGFloat] {
-        var positions: [CGFloat] = []
-        let lineSpacing = staffHeight / 6
-        let staffCenter = staffHeight / 2
-        
-        if position < -2.5 {
-            // Lines above the staff
-            let startLine = Int(floor(position / 0.5)) * -1
-            for i in stride(from: startLine, through: 5, by: 1) {
-                if i % 2 == 1 { // Only on line positions
-                    positions.append(staffCenter - CGFloat(i) * lineSpacing / 2)
-                }
-            }
-        } else if position > 2.5 {
-            // Lines below the staff
-            let startLine = Int(ceil(position / 0.5))
-            for i in stride(from: startLine, through: 6, by: 1) {
-                if i % 2 == 1 { // Only on line positions
-                    positions.append(staffCenter + CGFloat(i) * lineSpacing / 2)
-                }
-            }
-        }
-        
-        return positions
+        return staffCenter + (CGFloat(position) * lineSpacing)
     }
 }
 
 #Preview {
+    // Create sample sheet music using the new system
+    let context = MusicContext(keySignature: "D minor", clef: .treble, tempo: 120)
     let sampleNotes = [
-        Note.quarter(pitch: "C4", startTime: 0, position: 2.0),
-        Note.eighth(pitch: "E4", startTime: 0.5, position: 1.0),
-        Note.sixteenth(pitch: "G4", startTime: 0.75, position: 0.5),
-        Note.quarter(pitch: "C5", startTime: 1.0, position: -1.0),
-        Note.eighth(pitch: "E5", startTime: 1.5, position: -1.5),
+        TimedNote(note: Note.quarter("C4"), startTime: 0),
+        TimedNote(note: Note.eighth("E4"), startTime: 0.5),
+        TimedNote(note: Note.sixteenth("G4"), startTime: 0.75),
+        TimedNote(note: Note.quarter("C5"), startTime: 1.0),
+        TimedNote(note: Note.eighth("E5"), startTime: 1.5),
     ]
     
+    let sampleMusic = SheetMusic(
+        title: "Sample",
+        composer: "Test",
+        musicContext: context,
+        timeSignature: "4/4",
+        timedNotes: sampleNotes
+    )
+    
     ScoreView(
-        notes: sampleNotes, 
+        sheetMusic: sampleMusic,
         activeNotes: Set([sampleNotes[0].id, sampleNotes[2].id]),
         scrollOffset: 0,
         squiggleX: 80,
