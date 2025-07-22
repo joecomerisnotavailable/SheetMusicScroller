@@ -7,14 +7,6 @@ class CMajorScaleTestData {
     static let cMajorScaleTest: SheetMusic = {
         // Create an ascending C Major scale starting at C4 (middle C)
         // Position calculations:
-        // - Staff center (B4) = position 0
-        // - Bottom staff line (E4) = position 2.5
-        // - C4 should be same distance below E4 as G4 is above E4
-        // - G4 = position 2.0, so C4 = position 3.5
-        
-    static let cMajorScaleTest: SheetMusic = {
-        // Create an ascending C Major scale starting at C4 (middle C)
-        // Position calculations:
         // - Bottom staff line (E4) = position 2.5
         // - Second line from bottom (G4) = position 1.5  
         // - Distance between bottom line and second line = 1.0
