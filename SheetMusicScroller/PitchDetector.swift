@@ -48,13 +48,6 @@ final class PitchDetector: ObservableObject {
     @Published var detectedNoteName: String = "--"
     @Published var detectedOctave: Int = 0
     
-    // 🧪 MOCK AUDIO DETECTION MODE - FOR TESTING ONLY
-    // This section should be removed after validation is complete
-    @Published var isMockMode: Bool = true  // Default to mock mode for testing
-    @Published var mockModeActive: Bool = false
-    private var mockTimer: Timer?
-    private var mockStartTime: Date?
-    
     // Computed property for current pitch string
     var currentPitch: String {
         if currentFrequency > 0 && currentAmplitude > minimumAmplitudeThreshold {
@@ -88,92 +81,10 @@ final class PitchDetector: ObservableObject {
     deinit {
         // Only cleanup non-main-actor, thread-safe resources here
         permissionTimer?.invalidate()
-        mockTimer?.invalidate()  // 🧪 MOCK MODE CLEANUP
         // Do NOT call @MainActor methods from deinit
         #if canImport(AudioKit) && canImport(AVFoundation)
         stopAudioEngine()
         #endif
-    }
-
-    // MARK: - 🧪 MOCK AUDIO DETECTION MODE (FOR TESTING ONLY)
-    // This entire section should be removed after validation is complete
-    
-    /// Toggle between real audio detection and mock mode
-    func toggleMockMode() {
-        isMockMode.toggle()
-        if isListening {
-            stopListening()
-        }
-    }
-    
-    /// Start mock audio simulation - descending C Major scale starting at D5
-    private func startMockAudioDetection() {
-        print("🧪 MOCK MODE: Starting mock audio detection - descending C Major scale from D5")
-        mockModeActive = true
-        mockStartTime = Date()
-        isListening = true
-        microphonePermissionGranted = true
-        errorMessage = nil
-        
-        // Mock audio simulation timer - updates every 50ms for smooth animation
-        mockTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            self?.updateMockAudioDetection()
-        }
-    }
-    
-    /// Update mock audio detection to simulate descending scale
-    private func updateMockAudioDetection() {
-        guard let startTime = mockStartTime else { return }
-        
-        let elapsed = Date().timeIntervalSince(startTime)
-        
-        // Descending C Major scale frequencies (Hz) starting at D5
-        // Each note held for 0.5 seconds to match the ascending scale timing
-        let mockFrequencies: [(note: String, octave: Int, frequency: Double)] = [
-            ("D", 5, 587.33),  // D5 - starting note
-            ("C", 5, 523.25),  // C5
-            ("B", 4, 493.88),  // B4
-            ("A", 4, 440.00),  // A4
-            ("G", 4, 392.00),  // G4 - ⭐ TARGET (should be perfect green)
-            ("F", 4, 349.23),  // F4
-            ("E", 4, 329.63),  // E4
-            ("D", 4, 293.66),  // D4
-            ("C", 4, 261.63),  // C4 - ending note
-        ]
-        
-        let noteIndex = Int(elapsed / 0.5) // Each note for 0.5 seconds
-        
-        if noteIndex < mockFrequencies.count {
-            let currentNote = mockFrequencies[noteIndex]
-            
-            DispatchQueue.main.async { [weak self] in
-                self?.currentFrequency = currentNote.frequency
-                self?.currentAmplitude = 0.8 // Strong, consistent signal
-                self?.detectedNoteName = currentNote.note
-                self?.detectedOctave = currentNote.octave
-            }
-        } else {
-            // Cycle complete, restart or stop
-            DispatchQueue.main.async { [weak self] in
-                self?.mockStartTime = Date() // Restart the cycle
-            }
-        }
-    }
-    
-    /// Stop mock audio detection
-    private func stopMockAudioDetection() {
-        print("🧪 MOCK MODE: Stopping mock audio detection")
-        mockTimer?.invalidate()
-        mockTimer = nil
-        mockModeActive = false
-        mockStartTime = nil
-        
-        DispatchQueue.main.async { [weak self] in
-            self?.currentFrequency = 0.0
-            self?.currentAmplitude = 0.0
-            self?.detectedNoteName = "--"
-            self?.detectedOctave = 0
-        }
     }
 
     // MARK: - AudioKit Setup and Permission
@@ -354,12 +265,6 @@ final class PitchDetector: ObservableObject {
     func startListening() {
         print("Starting pitch detection...")
         
-        // 🧪 MOCK MODE CHECK
-        if isMockMode {
-            startMockAudioDetection()
-            return
-        }
-        
         #if canImport(AudioKit) && canImport(AVFoundation)
         if !isListening {
             if microphonePermissionGranted {
@@ -379,11 +284,6 @@ final class PitchDetector: ObservableObject {
     @MainActor
     func stopListening() {
         print("Stopping pitch detection (stopListening called)...")
-        
-        // 🧪 MOCK MODE CHECK
-        if isMockMode || mockModeActive {
-            stopMockAudioDetection()
-        }
         
         tracker?.stop()
         stopAudioEngine()

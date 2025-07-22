@@ -45,11 +45,6 @@ struct SheetMusicScrollerView: View {
             }
             .padding()
             .background(platformBackgroundColor)
-            
-            // 🧪 MOCK MODE DISCLAIMER OVERLAY
-            if pitchDetector.isMockMode || pitchDetector.mockModeActive {
-                mockModeDisclaimerOverlay
-            }
         }
         .onDisappear {
             stopScrolling()
@@ -86,16 +81,8 @@ struct SheetMusicScrollerView: View {
     
     private var modeInfoView: some View {
         HStack {
-            // 🧪 MOCK MODE INDICATOR
-            if pitchDetector.isMockMode {
-                Text("🧪 MOCK AUDIO DETECTION")
-                    .font(.headline)
-                    .foregroundColor(.orange)
-                    .fontWeight(.bold)
-            } else {
-                Text("Live Pitch Detection")
-                    .font(.headline)
-            }
+            Text("Live Pitch Detection")
+                .font(.headline)
             
             Spacer()
             
@@ -103,7 +90,7 @@ struct SheetMusicScrollerView: View {
                 Circle()
                     .fill(pitchDetector.isListening ? .green : .red)
                     .frame(width: 8, height: 8)
-                Text(pitchDetector.isListening ? (pitchDetector.isMockMode ? "Mock Active" : "Listening") : "Not Listening")
+                Text(pitchDetector.isListening ? "Listening" : "Not Listening")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -142,26 +129,6 @@ struct SheetMusicScrollerView: View {
     
     private var controlsView: some View {
         HStack {
-            // 🧪 MOCK MODE TOGGLE (FOR TESTING ONLY)
-            Button(action: {
-                pitchDetector.toggleMockMode()
-            }) {
-                HStack {
-                    Image(systemName: pitchDetector.isMockMode ? "testtube.2" : "waveform")
-                        .font(.title3)
-                    Text(pitchDetector.isMockMode ? "Mock" : "Real")
-                        .font(.caption)
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(pitchDetector.isMockMode ? Color.orange : Color.blue)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(PlainButtonStyle())
-            
-            Spacer().frame(width: 10)
-            
             // Microphone button for pitch mode
             Button(action: togglePitchListening) {
                 Image(systemName: pitchDetector.isListening ? "mic.fill" : "mic.slash.fill")
@@ -272,50 +239,7 @@ struct SheetMusicScrollerView: View {
     
     /// Get the current squiggle tip color based on pitch and musical context
     private var squiggleColor: Color {
-        // 🧪 MOCK MODE: Special color logic for testing G4 intersection
-        if pitchDetector.isMockMode || pitchDetector.mockModeActive {
-            if pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 {
-                let staffPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
-                
-                // G4 is at position 1.5 (second line up from bottom) in our note positioning
-                // But frequencyToStaffPosition uses different calculation, so let's check what it returns for G4 (392 Hz)
-                let g4Position: Double = 1.5 // Our note position for G4
-                let tolerance: Double = 0.2 // Slightly larger tolerance for floating point comparison
-                
-                // Convert G4 frequency (392 Hz) using the same method as frequencyToStaffPosition
-                // G4 = MIDI 67, frequencyToStaffPosition: (67 - 60) * 0.5 = 3.5
-                // But this doesn't match our note positioning! Let's use frequency directly
-                let g4Frequency = 392.0
-                let distanceFromG4 = abs(pitchDetector.currentFrequency - g4Frequency)
-                let frequencyTolerance = 10.0 // Hz tolerance for "close enough" to G4
-                
-                if distanceFromG4 < frequencyTolerance {
-                    return .green // Perfect green only near G4 frequency
-                } else {
-                    // Interpolate colors based on distance from G4 frequency
-                    let maxFrequencyDistance = 150.0 // Hz
-                    let normalizedDistance = min(distanceFromG4 / maxFrequencyDistance, 1.0)
-                    
-                    // Red when far from G4, orange when closer, green only at G4
-                    if normalizedDistance > 0.8 {
-                        return .red
-                    } else if normalizedDistance > 0.6 {
-                        return Color(red: 1.0, green: 0.3, blue: 0.0) // Red-orange
-                    } else if normalizedDistance > 0.4 {
-                        return .orange
-                    } else if normalizedDistance > 0.2 {
-                        return Color(red: 1.0, green: 0.8, blue: 0.0) // Yellow-orange
-                    } else {
-                        // Close to G4 but not exactly at it - yellow-green
-                        return Color(red: 0.5, green: 0.9, blue: 0.2)
-                    }
-                }
-            } else {
-                return .gray // No signal detected
-            }
-        }
-        
-        // Original logic for non-mock mode
+        // Original logic for real audio detection
         if pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 {
             // Color mapping based on detected frequency
             let staffPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
@@ -354,73 +278,6 @@ struct SheetMusicScrollerView: View {
     private func stopScrolling() {
         scrollTimer?.invalidate()
         scrollTimer = nil
-    }
-    
-    // 🧪 MOCK MODE DISCLAIMER OVERLAY (FOR TESTING ONLY)
-    private var mockModeDisclaimerOverlay: some View {
-        VStack {
-            Spacer()
-            
-            VStack(spacing: 16) {
-                // Warning header
-                HStack {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
-                        .font(.title2)
-                    Text("MOCK AUDIO DETECTION ACTIVE")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.orange)
-                    Image(systemName: "testtube.2")
-                        .foregroundColor(.orange)
-                        .font(.title2)
-                }
-                
-                // Explanation
-                VStack(spacing: 8) {
-                    Text("This is NOT real audio detection")
-                        .font(.headline)
-                        .foregroundColor(.red)
-                        .fontWeight(.bold)
-                    
-                    Text("Simulating descending C Major scale from D5")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Text("For testing squiggle trail and note alignment only")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .italic()
-                }
-                
-                // Toggle button
-                Button("Switch to Real Audio Detection") {
-                    pitchDetector.toggleMockMode()
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .font(.subheadline)
-                .fontWeight(.medium)
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.yellow.opacity(0.9))
-                    .shadow(radius: 10)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.orange, lineWidth: 3)
-            )
-            .padding(.horizontal, 40)
-            
-            Spacer()
-        }
-        .background(Color.black.opacity(0.3))
-        .animation(.easeInOut(duration: 0.3), value: pitchDetector.isMockMode)
     }
 }
 
