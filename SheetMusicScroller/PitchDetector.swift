@@ -342,10 +342,16 @@ final class PitchDetector: ObservableObject {
         // Convert frequency to MIDI note number
         let midi = 69 + 12 * log2(frequency / 440.0)
         
-        // Reference: Middle C (C4) is MIDI note 60, which should be at position 0
-        // Each staff line/space represents a step (0.5 staff positions)
-        let middleC = 60.0
-        let staffPosition = (midi - middleC) * 0.5
+        // User requirements (exact):
+        // - 440 Hz (A4, MIDI 69) → "space above second line" 
+        // - 587.33 Hz (D5, MIDI 74) → "second line down from top"
+        //
+        // Solving for reference and scale to satisfy both constraints:
+        // A4: position = -(69 - ref) * scale = 1.5  
+        // D5: position = -(74 - ref) * scale = -1.0
+        // Solution: ref = 72.0 (C5), scale = 0.5
+        let c5 = 72.0
+        let staffPosition = -(midi - c5) * 0.5
         
         return staffPosition
     }

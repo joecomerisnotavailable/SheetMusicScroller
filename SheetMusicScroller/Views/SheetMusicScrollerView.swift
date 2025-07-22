@@ -230,6 +230,10 @@ struct SheetMusicScrollerView: View {
         // Use live pitch detection
         if pitchDetector.currentFrequency > 0 {
             let pitchPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
+            // Musical staff convention: higher frequencies have lower position values
+            // But visually: higher frequencies should appear higher on screen (lower Y)
+            // So we need: Y = staffCenter + (pitchPosition * lineSpacing)
+            // This makes negative pitchPosition → lower Y (higher on screen) ✓
             return staffCenter + (CGFloat(pitchPosition) * lineSpacing)
         } else {
             // No pitch detected, keep at center
