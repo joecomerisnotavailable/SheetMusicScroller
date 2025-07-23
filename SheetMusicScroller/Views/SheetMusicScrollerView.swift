@@ -219,72 +219,123 @@ struct SheetMusicScrollerView: View {
         return []
     }
     
-    /// Calculate the current Y position of the squiggle tip based on live pitch
+    /// Calculate the current Y position of the squiggle tip based on live pitch with frequency interpolation
     private var currentSquiggleYPosition: CGFloat {
         let staffHeight: CGFloat = 120
-        let staffCenter = staffHeight / 2
-        // Use same line spacing calculation as ScoreView for consistency
-        let lineSpacing = (staffHeight - 20) / 8  // Match ScoreView calculation
         
         // Use live pitch detection
-        if pitchDetector.currentFrequency > 0 {
-            let pitchPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency, clef: sheetMusic.musicContext.clef)
-            return staffCenter + (CGFloat(pitchPosition) * lineSpacing)
-        } else {
+        guard pitchDetector.currentFrequency > 0 && pitchDetector.currentAmplitude > 0.01 else {
             // No pitch detected, keep at center
-            return staffCenter
+            return staffHeight / 2
         }
+        
+        let freq = pitchDetector.currentFrequency
+        let baseHz = sheetMusic.musicContext.a4Reference
+        let keySignature = sheetMusic.musicContext.keySignature
+        let clef = sheetMusic.musicContext.clef
+        
+        // Step 1: Get nearest note name from frequency
+        let nearestNoteName = StaffPositionMapper.noteNameFromFrequency(freq, a4Reference: baseHz)
+        
+        // Step 2: Get initial Y position using getYFromNoteAndKey
+        let yAnchor = StaffPositionMapper.getYFromNoteAndKey(nearestNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        
+        // Step 3: Calculate frequency delta and interpolation
+        let freqTrue = StaffPositionMapper.noteNameToFrequency(nearestNoteName, a4Reference: baseHz)
+        let freqDelta = freq - freqTrue
+        
+        // If very close to exact frequency, return anchor position
+        if abs(freqDelta) < 2.0 { // Within 2 Hz
+            return yAnchor
+        }
+        
+        // Step 4: Find the next note in the direction of frequency difference
+        let direction = freqDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
+        let noteNext = StaffPositionMapper.nextNoteWithDifferentStaffPosition(from: nearestNoteName, direction: direction, keySignature: keySignature, clef: clef)
+        let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        
+        // Step 5: Find the top frequency note (same staff position as nearest but in direction of freq delta)
+        let nearestMidi = StaffPositionMapper.noteNameToMidiNote(nearestNoteName)
+        var topFreqNote = nearestNoteName
+        var currentMidi = nearestMidi + direction
+        
+        // Find the last note going in the direction that has the same staff position
+        while abs(currentMidi - nearestMidi) <= 6 { // Don't go more than a tritone
+            let testNoteName = StaffPositionMapper.midiNoteToNoteName(currentMidi)
+            let testYPos = StaffPositionMapper.getYFromNoteAndKey(testNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+            
+            if abs(testYPos - yAnchor) < 1.0 { // Same staff position (within 1 pixel)
+                topFreqNote = testNoteName
+                currentMidi += direction
+            } else {
+                break
+            }
+        }
+        
+        let freqTop = StaffPositionMapper.noteNameToFrequency(topFreqNote, a4Reference: baseHz)
+        let freqNextTrue = StaffPositionMapper.noteNameToFrequency(noteNext, a4Reference: baseHz)
+        
+        // Step 6: Interpolate position based on frequency ratio
+        guard abs(freqNextTrue - freqTop) > 0.1 else { return yAnchor } // Avoid division by zero
+        
+        let ratio = abs(freq - freqTop) / abs(freqNextTrue - freqTop)
+        let clampedRatio = min(max(ratio, 0.0), 1.0) // Clamp between 0 and 1
+        
+        // Interpolate Y position
+        let ySquiggle = yAnchor + (yNext - yAnchor) * CGFloat(clampedRatio)
+        
+        return ySquiggle
     }
     
-    /// Get the current squiggle tip color based on pitch and musical context
+    /// Get the current squiggle tip color based on pitch distance from target
     private var squiggleColor: Color {
         // If no pitch detected, show gray
         guard pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 else {
             return .gray
         }
         
-        // Get the current detected note
-        let detectedNote = pitchDetector.currentPitch
+        // Get the current detected note and frequency
+        let currentFreq = pitchDetector.currentFrequency
+        let baseHz = sheetMusic.musicContext.a4Reference
         
-        // Check if the detected note matches any of the currently visible notes in the score
-        // For now, check against the first note (D4) which should be green when played correctly
-        if !detectedNote.isEmpty {
-            // Get the first visible note from the Bach Allemande (which is D4)
-            if let firstNote = sheetMusic.timedNotes.first {
-                let expectedNote = firstNote.note.noteName
-                
-                // Handle enharmonic equivalents (A# = Bb, etc.)
-                let normalizedDetected = normalizeNoteName(detectedNote)
-                let normalizedExpected = normalizeNoteName(expectedNote)
-                
-                if normalizedDetected == normalizedExpected {
-                    return .green  // Correct note being played
-                }
-            }
+        // Find the target frequency (first note in the piece for now - D4)
+        guard let firstNote = sheetMusic.timedNotes.first else {
+            return .gray
         }
         
-        // If note doesn't match or no strong signal, show red
-        return .red
-    }
-    
-    /// Normalize note names to handle enharmonic equivalents
-    private func normalizeNoteName(_ noteName: String) -> String {
-        // Convert sharps to flats for D minor context
-        let conversions: [String: String] = [
-            "A#": "Bb",
-            "C#": "C#",  // Keep C# as is in D minor
-            "D#": "Eb",
-            "F#": "Gb",
-            "G#": "Ab"
-        ]
+        let targetNoteName = firstNote.note.noteName
+        let targetFreq = StaffPositionMapper.noteNameToFrequency(targetNoteName, a4Reference: baseHz)
         
-        for (from, to) in conversions {
-            if noteName.contains(from) {
-                return noteName.replacingOccurrences(of: from, with: to)
-            }
+        // Calculate frequency difference
+        let freqDiff = currentFreq - targetFreq
+        
+        // Calculate semitone difference (12 semitones = octave, frequency doubles)
+        let semitoneDiff = 12.0 * log2(currentFreq / targetFreq)
+        
+        // If very close to target (within 0.1 semitones), show green
+        if abs(semitoneDiff) < 0.1 {
+            return .green
         }
         
-        return noteName
+        // Color interpolation based on distance from target
+        let maxSemitones: Double = 1.0  // Full color at 1 semitone distance
+        let normalizedDistance = min(abs(semitoneDiff) / maxSemitones, 1.0)
+        
+        if freqDiff < 0 {
+            // Below target frequency -> purple
+            let purpleIntensity = normalizedDistance
+            let greenComponent = max(0, 1.0 - purpleIntensity)
+            return Color(red: purpleIntensity * 0.5 + greenComponent * 0.0,
+                        green: greenComponent,
+                        blue: purpleIntensity * 0.8 + greenComponent * 0.5)
+        } else {
+            // Above target frequency -> red  
+            let redIntensity = normalizedDistance
+            let greenComponent = max(0, 1.0 - redIntensity)
+            return Color(red: redIntensity + greenComponent * 0.0,
+                        green: greenComponent,
+                        blue: greenComponent * 0.0)
+        }
     }
     
     private func togglePitchListening() {

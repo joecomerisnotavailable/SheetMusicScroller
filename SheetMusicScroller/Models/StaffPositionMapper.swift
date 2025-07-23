@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Represents a staff line with positioning logic
 struct StaffLine {
@@ -61,6 +62,21 @@ struct KeySignatureAccidental {
         case .flat: return "♭"
         }
     }
+    
+    /// Get the note name for positioning this accidental
+    var noteName: String {
+        // For D minor, the flat is on Bb
+        switch clef {
+        case .treble:
+            return "B4"  // Bb on the B line in treble clef
+        case .bass:
+            return "B2"  // Bb in bass clef
+        case .alto:
+            return "B4"  // Bb in alto clef
+        case .tenor:
+            return "B3"  // Bb in tenor clef
+        }
+    }
 }
 
 /// Represents different types of musical clefs
@@ -98,6 +114,24 @@ struct MusicContext: Codable {
 
 /// Universal utility for mapping frequencies and note names to staff positions
 class StaffPositionMapper {
+    
+    /// Universal function to convert (note name, key signature) to vertical screen position
+    /// Used by all objects that need Y coordinates: notes, staff lines, clef, key signature, squiggle
+    /// - Parameters:
+    ///   - noteName: The note name (e.g., "G4", "C4", "Bb4")
+    ///   - keySignature: The active key signature (e.g., "D minor")
+    ///   - clef: The clef type (default: treble)
+    ///   - staffHeight: The height of the staff in pixels (default: 120)
+    /// - Returns: Y coordinate in pixels
+    static func getYFromNoteAndKey(_ noteName: String, keySignature: String, clef: Clef = .treble, staffHeight: CGFloat = 120) -> CGFloat {
+        let context = MusicContext(keySignature: keySignature, clef: clef)
+        let staffPosition = noteNameToStaffPosition(noteName, context: context)
+        
+        // Convert staff position to Y coordinate
+        let staffCenter = staffHeight / 2
+        let lineSpacing = (staffHeight - 20) / 8  // Same calculation as ScoreView
+        return staffCenter + (CGFloat(staffPosition) * lineSpacing)
+    }
     
     /// Maps a frequency to a staff position for a given musical context
     /// - Parameters:
@@ -217,6 +251,61 @@ class StaffPositionMapper {
         let noteIndex = midiNote % 12
         let octave = midiNote / 12 - 1
         return "\(noteNames[noteIndex])\(octave)"
+    }
+    
+    /// Convert frequency to nearest note name
+    /// - Parameters:
+    ///   - frequency: The frequency in Hz
+    ///   - a4Reference: Base Hz reference for A4 (default 440.0)
+    /// - Returns: Nearest note name like "A4", "C#5", etc.
+    static func noteNameFromFrequency(_ frequency: Double, a4Reference: Double = 440.0) -> String {
+        guard frequency > 0 else { return "C4" }
+        
+        // Convert frequency to MIDI note number
+        let midiNote = 69 + 12 * log2(frequency / a4Reference)
+        let roundedMidiNote = Int(round(midiNote))
+        
+        return midiNoteToNoteName(roundedMidiNote)
+    }
+    
+    /// Get the true frequency of a note name
+    /// - Parameters:
+    ///   - noteName: The note name (e.g., "A4", "C#5")
+    ///   - a4Reference: Base Hz reference for A4 (default 440.0)
+    /// - Returns: The exact frequency in Hz
+    static func noteNameToFrequency(_ noteName: String, a4Reference: Double = 440.0) -> Double {
+        let midiNote = noteNameToMidiNote(noteName)
+        return a4Reference * pow(2.0, Double(midiNote - 69) / 12.0)
+    }
+    
+    /// Find the next note in a direction whose staff position differs from the reference note
+    /// - Parameters:
+    ///   - fromNoteName: The reference note name
+    ///   - direction: Direction to search (1 for up, -1 for down)
+    ///   - keySignature: The key signature context
+    ///   - clef: The clef type
+    /// - Returns: Note name of the next note with different staff position
+    static func nextNoteWithDifferentStaffPosition(from fromNoteName: String, direction: Int, keySignature: String, clef: Clef = .treble) -> String {
+        let context = MusicContext(keySignature: keySignature, clef: clef)
+        let referenceMidi = noteNameToMidiNote(fromNoteName)
+        let referencePosition = noteNameToStaffPosition(fromNoteName, context: context)
+        
+        var currentMidi = referenceMidi + direction
+        
+        // Search for the next note with a different staff position
+        while abs(currentMidi - referenceMidi) <= 12 { // Don't go more than an octave
+            let currentNoteName = midiNoteToNoteName(currentMidi)
+            let currentPosition = noteNameToStaffPosition(currentNoteName, context: context)
+            
+            if abs(currentPosition - referencePosition) > 0.1 { // Different staff position
+                return currentNoteName
+            }
+            
+            currentMidi += direction
+        }
+        
+        // Fallback: return a note one semitone away
+        return midiNoteToNoteName(referenceMidi + direction)
     }
     
     /// Determines if a note should display an accidental given the key signature

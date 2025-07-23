@@ -27,7 +27,7 @@ struct ScoreView: View {
                 Rectangle()
                     .fill(Color.black)
                     .frame(width: UIScreen.main.bounds.width, height: 1)
-                    .position(x: UIScreen.main.bounds.width / 2, y: noteYPosition(for: staffLine.position))
+                    .position(x: UIScreen.main.bounds.width / 2, y: StaffPositionMapper.getYFromNoteAndKey(staffLine.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight))
             }
             
             // Fixed gutter with clef and key signature
@@ -80,9 +80,9 @@ struct ScoreView: View {
     private var clefVerticalOffset: CGFloat {
         switch sheetMusic.musicContext.clef {
         case .treble: 
-            // Treble clef: large curl should be centered on G4 line (position 2.0)
-            // The G4 line is the second line from bottom
-            let g4YPosition = noteYPosition(for: 2.0)  // G4 line position
+            // Treble clef: large curl should be centered on G4 line
+            // Use getYFromNoteAndKey to get G4 position
+            let g4YPosition = StaffPositionMapper.getYFromNoteAndKey("G4", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
             let staffCenter = staffHeight / 2
             return g4YPosition - staffCenter - 10  // Adjust by -10 to center the curl properly
         case .bass: return 0
@@ -108,7 +108,7 @@ struct ScoreView: View {
                 Text(accidental.symbol)
                     .font(.system(size: 20))
                     .foregroundColor(.black)
-                    .position(x: 15, y: noteYPosition(for: accidental.position))
+                    .position(x: 15, y: StaffPositionMapper.getYFromNoteAndKey(accidental.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight))
             }
         }
         .frame(width: 30, height: staffHeight)
@@ -118,8 +118,7 @@ struct ScoreView: View {
         // Notes positioned on the staff - they scroll horizontally
         ForEach(Array(sheetMusic.timedNotes.enumerated()), id: \.element.id) { index, timedNote in
             let xPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
-            let staffPosition = timedNote.staffPosition(in: sheetMusic.musicContext)
-            let yPosition = noteYPosition(for: staffPosition)
+            let yPosition = StaffPositionMapper.getYFromNoteAndKey(timedNote.note.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
             let hasPassedSquiggle = xPosition <= squiggleX
             
             Group {
@@ -133,28 +132,25 @@ struct ScoreView: View {
                 .position(x: xPosition, y: yPosition)
                 
                 // Ledger lines for notes above or below the staff using new mapping system
+                let staffPosition = timedNote.staffPosition(in: sheetMusic.musicContext)
                 let ledgerLines = StaffPositionMapper.getLedgerLinesCount(for: staffPosition)
                 if ledgerLines > 0 {
                     let ledgerPositions = StaffPositionMapper.getLedgerLinePositions(for: staffPosition)
                     ForEach(Array(ledgerPositions.enumerated()), id: \.offset) { _, linePosition in
+                        // Convert staff position to Y using the same calculation as noteYPosition
+                        let staffCenter = staffHeight / 2
+                        let lineSpacing = (staffHeight - 20) / 8
+                        let ledgerY = staffCenter + (CGFloat(linePosition) * lineSpacing)
+                        
                         Rectangle()
                             .fill(Color.black)
                             .frame(width: 20, height: 1)
-                            .position(x: xPosition, y: noteYPosition(for: linePosition))
+                            .position(x: xPosition, y: ledgerY)
                     }
                 }
             }
             .opacity(xPosition > -50 ? 1 : 0) // Fade out notes that have scrolled too far left
         }
-    }
-    
-    // Convert note position to Y coordinate on staff
-    private func noteYPosition(for position: Double) -> CGFloat {
-        let staffCenter = staffHeight / 2
-        // Staff has 5 lines spanning positions -4 to +4 
-        // Leave a small margin to ensure all lines are visible
-        let lineSpacing = (staffHeight - 20) / 8  // 20px margin (10px top + 10px bottom)
-        return staffCenter + (CGFloat(position) * lineSpacing)
     }
 }
 
