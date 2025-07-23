@@ -237,54 +237,14 @@ struct SheetMusicScrollerView: View {
         // Step 1: Get nearest note name from frequency
         let nearestNoteName = StaffPositionMapper.noteNameFromFrequency(freq, a4Reference: baseHz)
         
-        // Step 2: Get initial Y position using getYFromNoteAndKey
-        let yAnchor = StaffPositionMapper.getYFromNoteAndKey(nearestNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        // Step 2: Get initial Y position using getYFromNoteAndKey (same as notes)
+        let yPosition = StaffPositionMapper.getYFromNoteAndKey(nearestNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
         
-        // Step 3: Calculate frequency delta and interpolation
-        let freqTrue = StaffPositionMapper.noteNameToFrequency(nearestNoteName, a4Reference: baseHz)
-        let freqDelta = freq - freqTrue
+        // For debugging: use simple positioning without complex interpolation
+        // This should place the squiggle exactly where the note would be
+        return yPosition
         
-        // If very close to exact frequency, return anchor position
-        if abs(freqDelta) < 2.0 { // Within 2 Hz
-            return yAnchor
-        }
-        
-        // Step 4: Find the next note in the direction of frequency difference
-        let direction = freqDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
-        let noteNext = StaffPositionMapper.nextNoteWithDifferentStaffPosition(from: nearestNoteName, direction: direction, keySignature: keySignature, clef: clef)
-        let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
-        
-        // Step 5: Find the top frequency note (same staff position as nearest but in direction of freq delta)
-        let nearestMidi = StaffPositionMapper.noteNameToMidiNote(nearestNoteName)
-        var topFreqNote = nearestNoteName
-        var currentMidi = nearestMidi + direction
-        
-        // Find the last note going in the direction that has the same staff position
-        while abs(currentMidi - nearestMidi) <= 6 { // Don't go more than a tritone
-            let testNoteName = StaffPositionMapper.midiNoteToNoteName(currentMidi)
-            let testYPos = StaffPositionMapper.getYFromNoteAndKey(testNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
-            
-            if abs(testYPos - yAnchor) < 1.0 { // Same staff position (within 1 pixel)
-                topFreqNote = testNoteName
-                currentMidi += direction
-            } else {
-                break
-            }
-        }
-        
-        let freqTop = StaffPositionMapper.noteNameToFrequency(topFreqNote, a4Reference: baseHz)
-        let freqNextTrue = StaffPositionMapper.noteNameToFrequency(noteNext, a4Reference: baseHz)
-        
-        // Step 6: Interpolate position based on frequency ratio
-        guard abs(freqNextTrue - freqTop) > 0.1 else { return yAnchor } // Avoid division by zero
-        
-        let ratio = abs(freq - freqTop) / abs(freqNextTrue - freqTop)
-        let clampedRatio = min(max(ratio, 0.0), 1.0) // Clamp between 0 and 1
-        
-        // Interpolate Y position
-        let ySquiggle = yAnchor + (yNext - yAnchor) * CGFloat(clampedRatio)
-        
-        return ySquiggle
+        // TODO: Re-implement frequency interpolation if needed after basic positioning is confirmed working
     }
     
     /// Get the current squiggle tip color based on pitch distance from target

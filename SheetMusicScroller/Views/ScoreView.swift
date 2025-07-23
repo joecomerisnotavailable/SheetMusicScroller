@@ -67,10 +67,16 @@ struct ScoreView: View {
     }
     
     private var clefFontSize: CGFloat {
-        // Treble clef should be much larger relative to staff - about 75% of staff height
-        let staffHeight: CGFloat = 120
+        // Treble clef should be sized so its curl centers on G4 and tip reaches E5
         switch sheetMusic.musicContext.clef {
-        case .treble: return staffHeight * 0.8  // Larger treble clef
+        case .treble: 
+            // Calculate size based on G4 to E5 distance
+            let g4Y = StaffPositionMapper.getYFromNoteAndKey("G4", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+            let e5Y = StaffPositionMapper.getYFromNoteAndKey("E5", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+            let distanceG4ToE5 = g4Y - e5Y  // Should be about 62.5 pixels
+            
+            // Scale clef to span from E5 to below the staff (about 2.2 times the G4-E5 distance)
+            return distanceG4ToE5 * 2.2
         case .bass: return staffHeight * 0.6
         case .alto: return staffHeight * 0.5
         case .tenor: return staffHeight * 0.5
@@ -81,10 +87,11 @@ struct ScoreView: View {
         switch sheetMusic.musicContext.clef {
         case .treble: 
             // Treble clef: large curl should be centered on G4 line
-            // Use getYFromNoteAndKey to get G4 position
             let g4YPosition = StaffPositionMapper.getYFromNoteAndKey("G4", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
             let staffCenter = staffHeight / 2
-            return g4YPosition - staffCenter - 10  // Adjust by -10 to center the curl properly
+            
+            // Position clef so its curl (center point) aligns with G4 line
+            return g4YPosition - staffCenter
         case .bass: return 0
         case .alto: return 0
         case .tenor: return 0
