@@ -19,7 +19,6 @@
 		3D00011A1234567890123456 /* ScoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D0001191234567890123456 /* ScoreView.swift */; };
 		3D00011C1234567890123456 /* SheetMusicScrollerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D00011B1234567890123456 /* SheetMusicScrollerView.swift */; };
 		3D00011E1234567890123456 /* PitchDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D00011D1234567890123456 /* PitchDetector.swift */; };
-		3D00011F1234567890123456 /* StaffPositionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D00011E1234567890123456 /* StaffPositionMapper.swift */; };
 		D8C5DF3D2E2EF14A001B70B4 /* AudioKitEX in Frameworks */ = {isa = PBXBuildFile; productRef = D8C5DF3C2E2EF14A001B70B4 /* AudioKitEX */; };
 		D8C5DF402E2EF154001B70B4 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8C5DF3F2E2EF154001B70B4 /* AudioKit */; };
 		D8C5DF432E2EF1C3001B70B4 /* SoundpipeAudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8C5DF422E2EF1C3001B70B4 /* SoundpipeAudioKit */; };
@@ -39,7 +38,6 @@
 		3D0001191234567890123456 /* ScoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoreView.swift; sourceTree = "<group>"; };
 		3D00011B1234567890123456 /* SheetMusicScrollerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetMusicScrollerView.swift; sourceTree = "<group>"; };
 		3D00011D1234567890123456 /* PitchDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchDetector.swift; sourceTree = "<group>"; };
-		3D00011E1234567890123456 /* StaffPositionMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaffPositionMapper.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,7 +98,6 @@
 			children = (
 				3D00010F1234567890123456 /* Note.swift */,
 				3D0001111234567890123456 /* SheetMusic.swift */,
-				3D00011E1234567890123456 /* StaffPositionMapper.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -208,7 +205,6 @@
 				3D00011A1234567890123456 /* ScoreView.swift in Sources */,
 				3D00011C1234567890123456 /* SheetMusicScrollerView.swift in Sources */,
 				3D00011E1234567890123456 /* PitchDetector.swift in Sources */,
-				3D00011F1234567890123456 /* StaffPositionMapper.swift in Sources */,
 				3D0001001234567890123456 /* SheetMusicScrollerApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
