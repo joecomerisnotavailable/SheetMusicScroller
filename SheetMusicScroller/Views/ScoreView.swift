@@ -94,8 +94,13 @@ struct ScoreView: View {
             let g4YPosition = StaffPositionMapper.getYFromNoteAndKey("G4", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
             let staffCenter = staffHeight / 2
             
+            // Adjust for treble clef glyph internal structure
+            // The large curl is approximately 40% down from the top of the glyph
+            // This adjustment centers the curl on the G4 line
+            let glyphCurlAdjustment = clefFontSize * 0.15
+            
             // Return offset to center the clef curl on G4 line
-            return g4YPosition - staffCenter
+            return g4YPosition - staffCenter - glyphCurlAdjustment
         case .bass: 
             // Bass clef: center on F3 line (fourth line)
             let f3YPosition = StaffPositionMapper.getYFromNoteAndKey("F3", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
