@@ -237,14 +237,83 @@ struct SheetMusicScrollerView: View {
         // Step 1: Get nearest note name from frequency
         let nearestNoteName = StaffPositionMapper.noteNameFromFrequency(freq, a4Reference: baseHz)
         
-        // Step 2: Get initial Y position using getYFromNoteAndKey (same as notes)
-        let yPosition = StaffPositionMapper.getYFromNoteAndKey(nearestNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        // Step 2: Get initial Y position using getYFromNoteAndKey (anchor position)
+        let yAnchor = StaffPositionMapper.getYFromNoteAndKey(nearestNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
         
-        // For debugging: use simple positioning without complex interpolation
-        // This should place the squiggle exactly where the note would be
-        return yPosition
+        // Step 3: Get true frequency of the nearest note
+        let freqTrue = StaffPositionMapper.noteNameToFrequency(nearestNoteName, a4Reference: baseHz)
         
-        // TODO: Re-implement frequency interpolation if needed after basic positioning is confirmed working
+        // Step 4: Apply frequency interpolation if frequency differs from true note frequency
+        let freqDelta = freq - freqTrue
+        
+        // If frequency is very close to the note (within 1 cent), don't interpolate
+        if abs(freqDelta) < 0.5 {
+            return yAnchor
+        }
+        
+        // Step 5: Find the next note in the direction of frequency difference
+        let direction = freqDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
+        let noteNext = StaffPositionMapper.nextNoteWithDifferentStaffPosition(
+            from: nearestNoteName, 
+            direction: direction, 
+            keySignature: keySignature, 
+            clef: clef
+        )
+        
+        // Step 6: Get Y position of the next note with different staff position
+        let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        
+        // Step 7: Find the frequency of the last note in the direction that has the same staff position as nearestNoteName
+        let freqTop = findFreqTopForInterpolation(
+            nearestNoteName: nearestNoteName,
+            direction: direction,
+            keySignature: keySignature,
+            clef: clef,
+            baseHz: baseHz
+        )
+        
+        // Step 8: Get frequency of noteNext
+        let freqNext = StaffPositionMapper.noteNameToFrequency(noteNext, a4Reference: baseHz)
+        
+        // Step 9: Calculate interpolated Y position using the specified formula
+        // |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - freqTop|/|freqTop - freqNext|
+        let freqRange = abs(freqTop - freqNext)
+        let freqOffset = abs(freq - freqTop)
+        
+        guard freqRange > 0 else { return yAnchor }
+        
+        let interpolationRatio = min(freqOffset / freqRange, 1.0)  // Clamp to prevent over-interpolation
+        let yRange = yNext - yAnchor
+        let yOffset = yRange * interpolationRatio
+        
+        return yAnchor + yOffset
+    }
+    
+    /// Find the frequency of the last note in the given direction whose staff position 
+    /// does not differ from the nearest note's staff position
+    private func findFreqTopForInterpolation(nearestNoteName: String, direction: Int, keySignature: String, clef: Clef, baseHz: Double) -> Double {
+        let context = MusicContext(keySignature: keySignature, clef: clef)
+        let referenceMidi = StaffPositionMapper.noteNameToMidiNote(nearestNoteName)
+        let referencePosition = StaffPositionMapper.noteNameToStaffPosition(nearestNoteName, context: context)
+        
+        var currentMidi = referenceMidi
+        var lastMatchingNoteName = nearestNoteName
+        
+        // Search in the direction until we find a note with different staff position
+        for _ in 0..<12 { // Don't go more than an octave
+            currentMidi += direction
+            let currentNoteName = StaffPositionMapper.midiNoteToNoteName(currentMidi)
+            let currentPosition = StaffPositionMapper.noteNameToStaffPosition(currentNoteName, context: context)
+            
+            if abs(currentPosition - referencePosition) > 0.1 {
+                // Found a note with different staff position, return the last matching note's frequency
+                break
+            }
+            
+            lastMatchingNoteName = currentNoteName
+        }
+        
+        return StaffPositionMapper.noteNameToFrequency(lastMatchingNoteName, a4Reference: baseHz)
     }
     
     /// Get the current squiggle tip color based on pitch distance from target
