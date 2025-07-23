@@ -21,13 +21,16 @@ struct ScoreView: View {
     
     var body: some View {
         ZStack {
-            // Staff lines using the new positioning system
-            let staffLines = StaffLine.createStaffLines(for: sheetMusic.musicContext.clef)
-            ForEach(Array(staffLines.enumerated()), id: \.offset) { index, staffLine in
-                Rectangle()
-                    .fill(Color.black)
-                    .frame(maxWidth: .infinity, maxHeight: 1)
-                    .position(y: StaffPositionMapper.getYFromNoteAndKey(staffLine.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight))
+            // Staff lines using the unified getYFromNoteAndKey positioning system
+            GeometryReader { geometry in
+                let staffLines = StaffLine.createStaffLines(for: sheetMusic.musicContext.clef)
+                ForEach(Array(staffLines.enumerated()), id: \.offset) { index, staffLine in
+                    let yPos = StaffPositionMapper.getYFromNoteAndKey(staffLine.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+                    Rectangle()
+                        .fill(Color.black)
+                        .frame(width: geometry.size.width, height: 1)
+                        .position(x: geometry.size.width / 2, y: yPos)
+                }
             }
             
             // Fixed gutter with clef and key signature
@@ -39,7 +42,7 @@ struct ScoreView: View {
             // Scrolling notes area
             scrollingNotesView
         }
-        .frame(height: staffHeight + 60) // Extra space for notes above/below staff
+        .frame(height: staffHeight + 80) // Extra space for notes above/below staff and ledger lines
         .clipped()
     }
     
@@ -86,15 +89,28 @@ struct ScoreView: View {
     private var clefVerticalOffset: CGFloat {
         switch sheetMusic.musicContext.clef {
         case .treble: 
-            // Treble clef: large curl should be centered on G4 line
+            // Treble clef: use unified positioning system with G4 as the note name
+            // The curl should be centered on G4 line
             let g4YPosition = StaffPositionMapper.getYFromNoteAndKey("G4", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
             let staffCenter = staffHeight / 2
             
-            // Position clef so its curl (center point) aligns with G4 line
+            // Return offset to center the clef curl on G4 line
             return g4YPosition - staffCenter
-        case .bass: return 0
-        case .alto: return 0
-        case .tenor: return 0
+        case .bass: 
+            // Bass clef: center on F3 line (fourth line)
+            let f3YPosition = StaffPositionMapper.getYFromNoteAndKey("F3", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+            let staffCenter = staffHeight / 2
+            return f3YPosition - staffCenter
+        case .alto: 
+            // Alto clef: center on C4 line (middle line)
+            let c4YPosition = StaffPositionMapper.getYFromNoteAndKey("C4", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+            let staffCenter = staffHeight / 2
+            return c4YPosition - staffCenter
+        case .tenor: 
+            // Tenor clef: center on A3 line (fourth line)
+            let a3YPosition = StaffPositionMapper.getYFromNoteAndKey("A3", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+            let staffCenter = staffHeight / 2
+            return a3YPosition - staffCenter
         }
     }
     

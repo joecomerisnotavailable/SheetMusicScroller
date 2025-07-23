@@ -110,18 +110,18 @@ struct SheetMusicScrollerView: View {
                 squiggleX: squiggleX,
                 squiggleColor: squiggleColor
             )
-            .frame(height: 200)
+            .frame(height: 220)  // Increased to accommodate extended staff range
             
             // Historical marker squiggle
             SquiggleView(
-                height: 180,
+                height: 200,  // Increased height to match new frame
                 currentYPosition: currentSquiggleYPosition,
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
                 tipColor: squiggleColor
             )
         }
-        .frame(height: 200)
+        .frame(height: 220)  // Increased to match ScoreView height
         .clipped()
     }
     
@@ -219,13 +219,17 @@ struct SheetMusicScrollerView: View {
         return []
     }
     
-    /// Calculate the current Y position of the squiggle tip based on live pitch with frequency interpolation
+    /// Calculate the current Y position of the squiggle tip using the exact 4-step algorithm specified
+    /// Step 1: Read detected frequency from microphone
+    /// Step 2: Use noteNameFromFrequency to get nearest note name
+    /// Step 3: Use getYFromNoteAndKey to get initial Y coordinate (yAnchor)
+    /// Step 4: Apply frequency interpolation using the specified formula
     private var currentSquiggleYPosition: CGFloat {
         let staffHeight: CGFloat = 120
         
-        // Use live pitch detection
+        // Step 1: Read detected frequency from microphone
         guard pitchDetector.currentFrequency > 0 && pitchDetector.currentAmplitude > 0.01 else {
-            // No pitch detected, keep at center
+            // No pitch detected, return center position
             return staffHeight / 2
         }
         
@@ -234,24 +238,22 @@ struct SheetMusicScrollerView: View {
         let keySignature = sheetMusic.musicContext.keySignature
         let clef = sheetMusic.musicContext.clef
         
-        // Step 1: Get nearest note name from frequency
+        // Step 2: Use noteNameFromFrequency to get nearest note name
         let nearestNoteName = StaffPositionMapper.noteNameFromFrequency(freq, a4Reference: baseHz)
         
-        // Step 2: Get initial Y position using getYFromNoteAndKey (anchor position)
+        // Step 3: Use getYFromNoteAndKey to get initial Y coordinate (yAnchor)
         let yAnchor = StaffPositionMapper.getYFromNoteAndKey(nearestNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
         
-        // Step 3: Get true frequency of the nearest note
+        // Step 4: Apply frequency interpolation using the exact specified formula
         let freqTrue = StaffPositionMapper.noteNameToFrequency(nearestNoteName, a4Reference: baseHz)
-        
-        // Step 4: Apply frequency interpolation if frequency differs from true note frequency
         let freqDelta = freq - freqTrue
         
-        // If frequency is very close to the note (within 1 cent), don't interpolate
+        // If frequency is very close to the exact note, don't interpolate
         if abs(freqDelta) < 0.5 {
             return yAnchor
         }
         
-        // Step 5: Find the next note in the direction of frequency difference
+        // Find noteNext (next note whose staff position differs from nearestNoteName)
         let direction = freqDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
         let noteNext = StaffPositionMapper.nextNoteWithDifferentStaffPosition(
             from: nearestNoteName, 
@@ -260,10 +262,10 @@ struct SheetMusicScrollerView: View {
             clef: clef
         )
         
-        // Step 6: Get Y position of the next note with different staff position
+        // Calculate yNext using getYFromNoteAndKey
         let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
         
-        // Step 7: Find the frequency of the last note in the direction that has the same staff position as nearestNoteName
+        // Find freqTop (frequency of the last note in direction that has same staff position as nearestNoteName)
         let freqTop = findFreqTopForInterpolation(
             nearestNoteName: nearestNoteName,
             direction: direction,
@@ -272,11 +274,11 @@ struct SheetMusicScrollerView: View {
             baseHz: baseHz
         )
         
-        // Step 8: Get frequency of noteNext
+        // Calculate freqNext (frequency of noteNext)
         let freqNext = StaffPositionMapper.noteNameToFrequency(noteNext, a4Reference: baseHz)
         
-        // Step 9: Calculate interpolated Y position using the specified formula
-        // |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - freqTop|/|freqTop - freqNext|
+        // Apply the exact formula: |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - freqTop|/|freqTop - freqNext|
+        // Solving for ySquiggle: ySquiggle = yAnchor ± |yAnchor - yNext| * |freq - freqTop|/|freqTop - freqNext|
         let freqRange = abs(freqTop - freqNext)
         let freqOffset = abs(freq - freqTop)
         
@@ -284,9 +286,9 @@ struct SheetMusicScrollerView: View {
         
         let interpolationRatio = min(freqOffset / freqRange, 1.0)  // Clamp to prevent over-interpolation
         let yRange = yNext - yAnchor
-        let yOffset = yRange * interpolationRatio
+        let ySquiggle = yAnchor + yRange * interpolationRatio
         
-        return yAnchor + yOffset
+        return ySquiggle
     }
     
     /// Find the frequency of the last note in the given direction whose staff position 
