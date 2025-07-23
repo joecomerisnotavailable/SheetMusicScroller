@@ -67,25 +67,24 @@ struct ScoreView: View {
     }
     
     private var clefFontSize: CGFloat {
-        // Base clef size on line spacing for proper proportions
-        let lineSpacing = staffHeight / 8
+        // Treble clef should be much larger relative to staff - about 75% of staff height
+        let staffHeight: CGFloat = 120
         switch sheetMusic.musicContext.clef {
-        case .treble: return lineSpacing * 6  // Treble clef spans about 6 line spacings
-        case .bass: return lineSpacing * 4
-        case .alto: return lineSpacing * 3
-        case .tenor: return lineSpacing * 3
+        case .treble: return staffHeight * 0.8  // Larger treble clef
+        case .bass: return staffHeight * 0.6
+        case .alto: return staffHeight * 0.5
+        case .tenor: return staffHeight * 0.5
         }
     }
     
     private var clefVerticalOffset: CGFloat {
-        let lineSpacing = staffHeight / 8
         switch sheetMusic.musicContext.clef {
         case .treble: 
-            // Treble clef: large curl centered on G4 line (position 2.0)
-            // The clef should span from about F5 (position -4.0) to C4 (position 6.0)
-            let g4YPosition = noteYPosition(for: 2.0)
+            // Treble clef: large curl should be centered on G4 line (position 2.0)
+            // The G4 line is the second line from bottom
+            let g4YPosition = noteYPosition(for: 2.0)  // G4 line position
             let staffCenter = staffHeight / 2
-            return g4YPosition - staffCenter
+            return g4YPosition - staffCenter - 10  // Adjust by -10 to center the curl properly
         case .bass: return 0
         case .alto: return 0
         case .tenor: return 0
@@ -152,9 +151,9 @@ struct ScoreView: View {
     // Convert note position to Y coordinate on staff
     private func noteYPosition(for position: Double) -> CGFloat {
         let staffCenter = staffHeight / 2
-        // Staff has 5 lines spanning positions -4 to +4 (8 position units total)
-        // So lineSpacing = staffHeight / 8 to fit all lines within the staff frame
-        let lineSpacing = staffHeight / 8
+        // Staff has 5 lines spanning positions -4 to +4 
+        // Leave a small margin to ensure all lines are visible
+        let lineSpacing = (staffHeight - 20) / 8  // 20px margin (10px top + 10px bottom)
         return staffCenter + (CGFloat(position) * lineSpacing)
     }
 }

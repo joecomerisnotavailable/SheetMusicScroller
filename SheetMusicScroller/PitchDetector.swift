@@ -337,7 +337,8 @@ final class PitchDetector: ObservableObject {
     func frequencyToStaffPosition(_ frequency: Double, clef: Clef = .treble) -> Double {
         guard frequency > 0 else { return 0.0 }
         
-        let context = MusicContext(keySignature: "C major", clef: clef, a4Reference: 440.0)
+        // Use the same musical context as the sheet music for consistency
+        let context = MusicContext(keySignature: "D minor", clef: clef, a4Reference: 440.0)
         return StaffPositionMapper.frequencyToStaffPosition(frequency, context: context)
     }
     #else
@@ -351,7 +352,7 @@ final class PitchDetector: ObservableObject {
     }
     
     func frequencyToStaffPosition(_ frequency: Double, clef: Clef = .treble) -> Double {
-        let context = MusicContext(keySignature: "C major", clef: clef, a4Reference: 440.0)
+        let context = MusicContext(keySignature: "D minor", clef: clef, a4Reference: 440.0)
         return StaffPositionMapper.frequencyToStaffPosition(frequency, context: context)
     }
     #endif

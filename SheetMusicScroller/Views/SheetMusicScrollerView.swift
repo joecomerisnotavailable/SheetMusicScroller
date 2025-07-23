@@ -223,7 +223,8 @@ struct SheetMusicScrollerView: View {
     private var currentSquiggleYPosition: CGFloat {
         let staffHeight: CGFloat = 120
         let staffCenter = staffHeight / 2
-        let lineSpacing = staffHeight / 6
+        // Use same line spacing calculation as ScoreView for consistency
+        let lineSpacing = (staffHeight - 20) / 8  // Match ScoreView calculation
         
         // Use live pitch detection
         if pitchDetector.currentFrequency > 0 {
@@ -237,25 +238,53 @@ struct SheetMusicScrollerView: View {
     
     /// Get the current squiggle tip color based on pitch and musical context
     private var squiggleColor: Color {
-        // Color based on live pitch detection - vary by frequency and signal strength
-        if pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 {
-            // Color mapping based on detected frequency
-            let staffPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency, clef: sheetMusic.musicContext.clef)
-            
-            if staffPosition < -3.0 {
-                return .purple  // Very high frequencies
-            } else if staffPosition < -1.0 {
-                return .blue    // High frequencies  
-            } else if staffPosition < 1.0 {
-                return .green   // Medium frequencies
-            } else if staffPosition < 3.0 {
-                return .orange  // Lower frequencies
-            } else {
-                return .red     // Very low frequencies
-            }
-        } else {
-            return .gray // No signal detected
+        // If no pitch detected, show gray
+        guard pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 else {
+            return .gray
         }
+        
+        // Get the current detected note
+        let detectedNote = pitchDetector.currentPitch
+        
+        // Check if the detected note matches any of the currently visible notes in the score
+        // For now, check against the first note (D4) which should be green when played correctly
+        if !detectedNote.isEmpty {
+            // Get the first visible note from the Bach Allemande (which is D4)
+            if let firstNote = sheetMusic.timedNotes.first {
+                let expectedNote = firstNote.note.noteName
+                
+                // Handle enharmonic equivalents (A# = Bb, etc.)
+                let normalizedDetected = normalizeNoteName(detectedNote)
+                let normalizedExpected = normalizeNoteName(expectedNote)
+                
+                if normalizedDetected == normalizedExpected {
+                    return .green  // Correct note being played
+                }
+            }
+        }
+        
+        // If note doesn't match or no strong signal, show red
+        return .red
+    }
+    
+    /// Normalize note names to handle enharmonic equivalents
+    private func normalizeNoteName(_ noteName: String) -> String {
+        // Convert sharps to flats for D minor context
+        let conversions: [String: String] = [
+            "A#": "Bb",
+            "C#": "C#",  // Keep C# as is in D minor
+            "D#": "Eb",
+            "F#": "Gb",
+            "G#": "Ab"
+        ]
+        
+        for (from, to) in conversions {
+            if noteName.contains(from) {
+                return noteName.replacingOccurrences(of: from, with: to)
+            }
+        }
+        
+        return noteName
     }
     
     private func togglePitchListening() {
