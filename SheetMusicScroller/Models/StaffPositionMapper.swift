@@ -9,11 +9,11 @@ struct StaffLine {
     static func createStaffLines(for clef: Clef) -> [StaffLine] {
         // Staff lines are always at positions: -4, -2, 0, 2, 4 (relative to middle line)
         return [
-            StaffLine(position: -4.0, clef: clef),  // Top line
-            StaffLine(position: -2.0, clef: clef),  // Second line
-            StaffLine(position: 0.0, clef: clef),   // Middle line
-            StaffLine(position: 2.0, clef: clef),   // Fourth line
-            StaffLine(position: 4.0, clef: clef)    // Bottom line
+            StaffLine(position: -4.0, clef: clef),  // Top line (F5 in treble clef)
+            StaffLine(position: -2.0, clef: clef),  // Fourth line (D5 in treble clef)
+            StaffLine(position: 0.0, clef: clef),   // Middle line (B4 in treble clef)
+            StaffLine(position: 2.0, clef: clef),   // Second line (G4 in treble clef)
+            StaffLine(position: 4.0, clef: clef)    // Bottom line (E4 in treble clef)
         ]
     }
     
@@ -133,25 +133,31 @@ class StaffPositionMapper {
         
         switch clef {
         case .treble:
-            // In treble clef, map specific notes to their known positions
-            // Based on standard treble clef positioning:
+            // In treble clef, correct staff line positions are:
+            // F5 (77) = top line (position -4.0)
+            // D5 (74) = fourth line (position -2.0)  
+            // B4 (71) = middle line (position 0.0)
+            // G4 (67) = second line (position 2.0)
+            // E4 (64) = bottom line (position 4.0)
             switch intMidiNote {
-            case 76: return -4.0  // E5 - top line
-            case 74: return -3.0  // D5 - space above middle line
-            case 72: return -2.0  // C5 - second line from top
-            case 71: return -1.0  // B4 - space below second line
-            case 70: return -1.0  // Bb4 - space below second line (same as B4)
-            case 69: return 0.0   // A4 - middle line
-            case 67: return 1.0   // G4 - space below middle line
-            case 65: return 2.0   // F4 - second line from bottom
-            case 64: return 3.0   // E4 - space above bottom line
-            case 62: return 4.0   // D4 - bottom line
-            case 61: return 5.0   // C#4 - space below bottom line (same as C4)
-            case 60: return 5.0   // C4 - space below bottom line
+            case 77: return -4.0  // F5 - top line
+            case 76: return -3.0  // E5 - space between D5 and F5
+            case 74: return -2.0  // D5 - fourth line
+            case 72: return -1.0  // C5 - space between B4 and D5
+            case 71: return 0.0   // B4 - middle line
+            case 70: return 0.0   // Bb4 - middle line (same as B4)
+            case 69: return 1.0   // A4 - space between G4 and B4
+            case 67: return 2.0   // G4 - second line from bottom
+            case 65: return 3.0   // F4 - space between E4 and G4
+            case 64: return 4.0   // E4 - bottom line
+            case 62: return 5.0   // D4 - space below bottom line
+            case 61: return 6.0   // C#4 - first ledger line below staff
+            case 60: return 6.0   // C4 - first ledger line below staff
             default:
-                // For other notes, calculate relative to A4 (69) on middle line
-                let semitoneDiff = intMidiNote - 69
-                return Double(-semitoneDiff) * (7.0 / 12.0)
+                // For other notes, calculate relative to B4 (71) on middle line
+                let semitoneDiff = intMidiNote - 71
+                // Convert semitones to staff positions (7 semitones = 4 staff positions)
+                return Double(-semitoneDiff) * (4.0 / 7.0)
             }
             
         case .bass:

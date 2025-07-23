@@ -62,17 +62,15 @@ class BachAllemandeData {
         
         // Create timed notes with start times
         let timedNotes: [TimedNote] = [
-            // Measure 1 - Starting with D4 (the actual first note of the Allemande)
+            // Measure 1 - First 8 notes as specified: D4, D4, E4, F4, G4, A4, Bb4, C#4
             TimedNote(note: notes[0], startTime: 0.0),     // D4
-            TimedNote(note: notes[1], startTime: 0.125),   // F4
-            TimedNote(note: notes[2], startTime: 0.25),    // A4
-            TimedNote(note: notes[3], startTime: 0.375),   // D5
-            
-            // Measure 1 continued - descending pattern
-            TimedNote(note: notes[4], startTime: 0.5),     // C5
-            TimedNote(note: notes[5], startTime: 0.625),   // Bb4
-            TimedNote(note: notes[6], startTime: 0.75),    // A4
-            TimedNote(note: notes[7], startTime: 0.875),   // G4
+            TimedNote(note: notes[1], startTime: 0.125),   // D4
+            TimedNote(note: notes[2], startTime: 0.25),    // E4
+            TimedNote(note: notes[3], startTime: 0.375),   // F4
+            TimedNote(note: notes[4], startTime: 0.5),     // G4
+            TimedNote(note: notes[5], startTime: 0.625),   // A4
+            TimedNote(note: notes[6], startTime: 0.75),    // Bb4
+            TimedNote(note: notes[7], startTime: 0.875),   // C#4
             
             // Measure 2 - F4 held with ornamentation
             TimedNote(note: notes[8], startTime: 1.0),     // F4 eighth

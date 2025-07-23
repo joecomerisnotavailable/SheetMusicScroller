@@ -26,7 +26,7 @@ struct ScoreView: View {
             ForEach(Array(staffLines.enumerated()), id: \.offset) { index, staffLine in
                 Rectangle()
                     .fill(Color.black)
-                    .frame(height: 1)
+                    .frame(width: UIScreen.main.bounds.width, height: 1)
                     .position(x: UIScreen.main.bounds.width / 2, y: noteYPosition(for: staffLine.position))
             }
             
