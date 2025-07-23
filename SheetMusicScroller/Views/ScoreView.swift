@@ -131,16 +131,16 @@ struct ScoreView: View {
                 )
                 .position(x: xPosition, y: yPosition)
                 
-                // Ledger lines for notes above or below the staff using new mapping system
+                // Ledger lines for notes above or below the staff using unified mapping system
                 let staffPosition = timedNote.staffPosition(in: sheetMusic.musicContext)
                 let ledgerLines = StaffPositionMapper.getLedgerLinesCount(for: staffPosition)
                 if ledgerLines > 0 {
                     let ledgerPositions = StaffPositionMapper.getLedgerLinePositions(for: staffPosition)
                     ForEach(Array(ledgerPositions.enumerated()), id: \.offset) { _, linePosition in
-                        // Convert staff position to Y using the same calculation as noteYPosition
-                        let staffCenter = staffHeight / 2
-                        let lineSpacing = (staffHeight - 20) / 8
-                        let ledgerY = staffCenter + (CGFloat(linePosition) * lineSpacing)
+                        // Create a temporary note name for this ledger line position to get consistent Y positioning
+                        let ledgerMidi = StaffPositionMapper.staffPositionToMidiNote(linePosition, clef: sheetMusic.musicContext.clef)
+                        let ledgerNoteName = StaffPositionMapper.midiNoteToNoteName(ledgerMidi)
+                        let ledgerY = StaffPositionMapper.getYFromNoteAndKey(ledgerNoteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
                         
                         Rectangle()
                             .fill(Color.black)
