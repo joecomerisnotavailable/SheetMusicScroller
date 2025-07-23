@@ -26,8 +26,8 @@ struct ScoreView: View {
             ForEach(Array(staffLines.enumerated()), id: \.offset) { index, staffLine in
                 Rectangle()
                     .fill(Color.black)
-                    .frame(width: UIScreen.main.bounds.width, height: 1)
-                    .position(x: UIScreen.main.bounds.width / 2, y: StaffPositionMapper.getYFromNoteAndKey(staffLine.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight))
+                    .frame(maxWidth: .infinity, maxHeight: 1)
+                    .position(y: StaffPositionMapper.getYFromNoteAndKey(staffLine.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight))
             }
             
             // Fixed gutter with clef and key signature
