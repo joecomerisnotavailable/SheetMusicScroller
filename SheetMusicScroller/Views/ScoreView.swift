@@ -21,15 +21,14 @@ struct ScoreView: View {
     
     var body: some View {
         ZStack {
-            // Staff lines that extend across the full width
-            VStack(spacing: staffHeight / 6) {
-                ForEach(0..<5, id: \.self) { _ in
-                    Rectangle()
-                        .fill(Color.black)
-                        .frame(height: 1)
-                }
+            // Staff lines using the new positioning system
+            let staffLines = StaffLine.createStaffLines(for: sheetMusic.musicContext.clef)
+            ForEach(Array(staffLines.enumerated()), id: \.offset) { index, staffLine in
+                Rectangle()
+                    .fill(Color.black)
+                    .frame(height: 1)
+                    .position(x: UIScreen.main.bounds.width / 2, y: noteYPosition(for: staffLine.position))
             }
-            .frame(height: staffHeight)
             
             // Fixed gutter with clef and key signature
             HStack {
@@ -46,12 +45,16 @@ struct ScoreView: View {
     
     private var fixedGutterView: some View {
         HStack(spacing: 10) {
-            // Clef symbol
-            Text(clefSymbol)
-                .font(.system(size: 60))
-                .foregroundColor(.black)
+            // Clef symbol with proper positioning and sizing
+            ZStack {
+                Text(clefSymbol)
+                    .font(.system(size: clefFontSize))
+                    .foregroundColor(.black)
+                    .offset(x: 0, y: clefVerticalOffset)
+            }
+            .frame(width: 40, height: staffHeight)
             
-            // Key signature display (simplified for now)
+            // Key signature display using positioning system
             keySignatureView
             
             // Visual separator line for the gutter
@@ -61,6 +64,29 @@ struct ScoreView: View {
         }
         .frame(width: gutterWidth)
         .background(Color.white.opacity(0.9))
+    }
+    
+    private var clefFontSize: CGFloat {
+        switch sheetMusic.musicContext.clef {
+        case .treble: return staffHeight * 0.75  // Size relative to staff height
+        case .bass: return staffHeight * 0.6
+        case .alto: return staffHeight * 0.5
+        case .tenor: return staffHeight * 0.5
+        }
+    }
+    
+    private var clefVerticalOffset: CGFloat {
+        switch sheetMusic.musicContext.clef {
+        case .treble: 
+            // Treble clef: large curl centered on G4 line (position 1.0)
+            // The clef should span from about E5 (position -4.0) to C4 (position 5.0)
+            let g4YPosition = noteYPosition(for: 1.0)
+            let staffCenter = staffHeight / 2
+            return g4YPosition - staffCenter
+        case .bass: return 0
+        case .alto: return 0
+        case .tenor: return 0
+        }
     }
     
     private var clefSymbol: String {
@@ -73,22 +99,17 @@ struct ScoreView: View {
     }
     
     private var keySignatureView: some View {
-        VStack {
-            // Simplified key signature display - just show if it contains sharps or flats
-            if sheetMusic.musicContext.keySignature.contains("♯") || sheetMusic.musicContext.keySignature.contains("#") {
-                Text("♯")
+        ZStack {
+            // Key signature accidentals using positioning system
+            let accidentals = KeySignatureAccidental.createDMinorAccidentals(for: sheetMusic.musicContext.clef)
+            ForEach(Array(accidentals.enumerated()), id: \.offset) { index, accidental in
+                Text(accidental.symbol)
                     .font(.system(size: 20))
                     .foregroundColor(.black)
-                    .offset(y: -staffHeight * 0.1)
-            } else if sheetMusic.musicContext.keySignature.contains("♭") || sheetMusic.musicContext.keySignature.contains("b") {
-                Text("♭")
-                    .font(.system(size: 20))
-                    .foregroundColor(.black)
-                    .offset(y: -staffHeight * 0.15)
+                    .position(x: 15, y: noteYPosition(for: accidental.position))
             }
-            Spacer()
         }
-        .frame(height: staffHeight)
+        .frame(width: 30, height: staffHeight)
     }
     
     private var scrollingNotesView: some View {

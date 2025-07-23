@@ -1,5 +1,68 @@
 import Foundation
 
+/// Represents a staff line with positioning logic
+struct StaffLine {
+    let position: Double  // Staff position using same system as notes
+    let clef: Clef
+    
+    /// Creates staff lines for a given clef
+    static func createStaffLines(for clef: Clef) -> [StaffLine] {
+        // Staff lines are always at positions: -4, -2, 0, 2, 4 (relative to middle line)
+        return [
+            StaffLine(position: -4.0, clef: clef),  // Top line
+            StaffLine(position: -2.0, clef: clef),  // Second line
+            StaffLine(position: 0.0, clef: clef),   // Middle line
+            StaffLine(position: 2.0, clef: clef),   // Fourth line
+            StaffLine(position: 4.0, clef: clef)    // Bottom line
+        ]
+    }
+    
+    /// Get the note name for this staff line position
+    var noteName: String {
+        let middleLineMidi = clef.middleLineMidiNote
+        let midiNote = middleLineMidi - Int(position * (12.0 / 7.0) * 2.0)
+        return StaffPositionMapper.midiNoteToNoteName(midiNote)
+    }
+}
+
+/// Represents a key signature accidental with built-in positioning
+struct KeySignatureAccidental {
+    let accidentalType: AccidentalType
+    let position: Double  // Staff position
+    let clef: Clef
+    
+    enum AccidentalType {
+        case sharp
+        case flat
+    }
+    
+    /// Creates key signature accidentals for D minor
+    static func createDMinorAccidentals(for clef: Clef) -> [KeySignatureAccidental] {
+        // D minor has one flat: Bb
+        switch clef {
+        case .treble:
+            // Bb is on the B line (third line from bottom, position -1.0)
+            return [KeySignatureAccidental(accidentalType: .flat, position: -1.0, clef: clef)]
+        case .bass:
+            // Bb is on the second line from top in bass clef
+            return [KeySignatureAccidental(accidentalType: .flat, position: -2.0, clef: clef)]
+        case .alto:
+            // Bb is on the top line in alto clef
+            return [KeySignatureAccidental(accidentalType: .flat, position: -4.0, clef: clef)]
+        case .tenor:
+            // Bb is on the second line from top in tenor clef
+            return [KeySignatureAccidental(accidentalType: .flat, position: -2.0, clef: clef)]
+        }
+    }
+    
+    var symbol: String {
+        switch accidentalType {
+        case .sharp: return "♯"
+        case .flat: return "♭"
+        }
+    }
+}
+
 /// Represents different types of musical clefs
 enum Clef: String, CaseIterable, Codable {
     case treble = "treble"
@@ -66,14 +129,49 @@ class StaffPositionMapper {
     ///   - clef: The clef type
     /// - Returns: Staff position where 0 = middle line, negative = above, positive = below
     static func midiNoteToStaffPosition(_ midiNote: Double, clef: Clef) -> Double {
-        let middleLineMidi = Double(clef.middleLineMidiNote)
-        // Each semitone is approximately 0.5 staff positions (since diatonic steps are the visual unit)
-        // But we need to map to actual diatonic steps, not chromatic
-        let chromaticDifference = midiNote - middleLineMidi
+        let intMidiNote = Int(round(midiNote))
         
-        // Convert chromatic steps to diatonic staff positions
-        // This gives us the staff position relative to the middle line
-        return -chromaticDifference * (7.0 / 12.0) * 0.5  // Negative because higher pitch = lower position number
+        switch clef {
+        case .treble:
+            // In treble clef, map specific notes to their known positions
+            // Based on standard treble clef positioning:
+            switch intMidiNote {
+            case 76: return -4.0  // E5 - top line
+            case 74: return -3.0  // D5 - space above middle line
+            case 72: return -2.0  // C5 - second line from top
+            case 71: return -1.0  // B4 - space below second line
+            case 70: return -1.0  // Bb4 - space below second line (same as B4)
+            case 69: return 0.0   // A4 - middle line
+            case 67: return 1.0   // G4 - space below middle line
+            case 65: return 2.0   // F4 - second line from bottom
+            case 64: return 3.0   // E4 - space above bottom line
+            case 62: return 4.0   // D4 - bottom line
+            case 61: return 5.0   // C#4 - space below bottom line (same as C4)
+            case 60: return 5.0   // C4 - space below bottom line
+            default:
+                // For other notes, calculate relative to A4 (69) on middle line
+                let semitoneDiff = intMidiNote - 69
+                return Double(-semitoneDiff) * (7.0 / 12.0)
+            }
+            
+        case .bass:
+            // In bass clef, D3 (50) is on the middle line
+            let referenceMidi = 50 // D3 on middle line
+            let semitoneDiff = intMidiNote - referenceMidi
+            return Double(-semitoneDiff) * (7.0 / 12.0)
+            
+        case .alto:
+            // In alto clef, C4 (60) is on the middle line
+            let referenceMidi = 60 // C4 on middle line
+            let semitoneDiff = intMidiNote - referenceMidi
+            return Double(-semitoneDiff) * (7.0 / 12.0)
+            
+        case .tenor:
+            // In tenor clef, A3 (57) is on the middle line
+            let referenceMidi = 57 // A3 on middle line
+            let semitoneDiff = intMidiNote - referenceMidi
+            return Double(-semitoneDiff) * (7.0 / 12.0)
+        }
     }
     
     /// Converts a note name like "C4", "Bb5", "F#3" to MIDI note number

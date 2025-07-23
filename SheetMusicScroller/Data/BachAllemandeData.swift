@@ -10,17 +10,15 @@ class BachAllemandeData {
         
         // Create immutable notes with the new Note structure
         let notes: [Note] = [
-            // Measure 1 - Starting with D4 (the actual first note of the Allemande)
+            // First 8 notes as specified: D4, D4, E4, F4, G4, A4, Bb4, C#4
             Note.sixteenth("D4", a4Reference: a4Reference, keySignature: keySignature),
+            Note.sixteenth("D4", a4Reference: a4Reference, keySignature: keySignature),
+            Note.sixteenth("E4", a4Reference: a4Reference, keySignature: keySignature),
             Note.sixteenth("F4", a4Reference: a4Reference, keySignature: keySignature),
-            Note.sixteenth("A4", a4Reference: a4Reference, keySignature: keySignature),
-            Note.sixteenth("D5", a4Reference: a4Reference, keySignature: keySignature),
-            
-            // Measure 1 continued - descending pattern
-            Note.sixteenth("C5", a4Reference: a4Reference, keySignature: keySignature),
-            Note.sixteenth("Bb4", a4Reference: a4Reference, keySignature: keySignature),
-            Note.sixteenth("A4", a4Reference: a4Reference, keySignature: keySignature),
             Note.sixteenth("G4", a4Reference: a4Reference, keySignature: keySignature),
+            Note.sixteenth("A4", a4Reference: a4Reference, keySignature: keySignature),
+            Note.sixteenth("Bb4", a4Reference: a4Reference, keySignature: keySignature),
+            Note.sixteenth("C#4", a4Reference: a4Reference, keySignature: keySignature),
             
             // Measure 2 - F4 held with ornamentation
             Note.eighth("F4", a4Reference: a4Reference, keySignature: keySignature),
