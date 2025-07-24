@@ -6,45 +6,51 @@ struct MusicalSymbolImageManager {
     /// Represents a clef image with its positioning information
     struct ClefImageInfo {
         let imageName: String
-        let originOffsetFromBottom: CGFloat  // Distance from bottom of image to origin point
+        let originOffsetFromBottom: CGFloat  // Distance from bottom of image to origin point (in SVG coordinates)
         let referenceNoteName: String        // Note that the origin should align with
+        let svgHeight: CGFloat               // Height of the original SVG for scaling calculations
     }
     
     /// Represents an accidental image with its positioning information
     struct AccidentalImageInfo {
         let imageName: String
-        let originOffsetFromBottom: CGFloat  // Distance from bottom of image to origin point
+        let originOffsetFromBottom: CGFloat  // Distance from bottom of image to origin point (in SVG coordinates)
+        let svgHeight: CGFloat               // Height of the original SVG for scaling calculations
     }
     
     /// Clef image configurations with origin positioning information
     static let clefImages: [Clef: ClefImageInfo] = [
         .treble: ClefImageInfo(
             imageName: "TrebleClef",
-            originOffsetFromBottom: 15,  // Origin at bottom loop center (y=90 in 100px image, so 10px from bottom + 5px to center)
-            referenceNoteName: "G4"
+            originOffsetFromBottom: 5,  // Origin at bottom loop center (y=95 in 100px image, so 5px from bottom)
+            referenceNoteName: "G4",
+            svgHeight: 100
         ),
         .bass: ClefImageInfo(
             imageName: "BassClef", 
             originOffsetFromBottom: 40,  // Origin at F3 position
-            referenceNoteName: "F3"
+            referenceNoteName: "F3",
+            svgHeight: 100
         ),
         .alto: ClefImageInfo(
             imageName: "AltoClef",
             originOffsetFromBottom: 50,  // Origin at C4 position
-            referenceNoteName: "C4"
+            referenceNoteName: "C4",
+            svgHeight: 100
         ),
         .tenor: ClefImageInfo(
             imageName: "TenorClef",
             originOffsetFromBottom: 40,  // Origin at A3 position
-            referenceNoteName: "A3"
+            referenceNoteName: "A3",
+            svgHeight: 100
         )
     ]
     
     /// Accidental image configurations
     static let accidentalImages: [String: AccidentalImageInfo] = [
-        "♯": AccidentalImageInfo(imageName: "Sharp", originOffsetFromBottom: 15), // Origin at center intersection (y=15 in 30px image)
-        "♭": AccidentalImageInfo(imageName: "Flat", originOffsetFromBottom: 5),  // Origin at bottom ring center (y=35 in 40px image)
-        "♮": AccidentalImageInfo(imageName: "Natural", originOffsetFromBottom: 15) // Origin at center (y=15 in 30px image)
+        "♯": AccidentalImageInfo(imageName: "Sharp", originOffsetFromBottom: 15, svgHeight: 30), // Origin at center intersection
+        "♭": AccidentalImageInfo(imageName: "Flat", originOffsetFromBottom: 5, svgHeight: 40),  // Origin at bottom ring center (y=35 in 40px image)
+        "♮": AccidentalImageInfo(imageName: "Natural", originOffsetFromBottom: 15, svgHeight: 30) // Origin at center
     ]
     
     /// Creates a properly positioned clef image view
@@ -59,11 +65,14 @@ struct MusicalSymbolImageManager {
         }
         
         // Calculate the correct position for the image center
-        // If origin is originOffsetFromBottom pixels from the bottom, 
-        // and we want origin at position.y, then:
-        // - Bottom of image should be at: position.y - originOffsetFromBottom
-        // - Center of image should be at: position.y - originOffsetFromBottom + (targetHeight / 2)
-        let imageCenterY = position.y - clefInfo.originOffsetFromBottom + (targetHeight / 2)
+        // Scale the origin offset to the target image height
+        let scaledOriginOffset = clefInfo.originOffsetFromBottom * (targetHeight / clefInfo.svgHeight)
+        
+        // If the origin is scaledOriginOffset pixels from the bottom of the image,
+        // and we want the origin at position.y, then:
+        // - Bottom of image should be at: position.y + scaledOriginOffset
+        // - Center of image should be at: position.y + scaledOriginOffset - (targetHeight / 2)
+        let imageCenterY = position.y + scaledOriginOffset - (targetHeight / 2)
         
         return AnyView(
             Image(clefInfo.imageName)
@@ -89,9 +98,12 @@ struct MusicalSymbolImageManager {
         }
         
         // Calculate the correct offset for the image center
-        // If origin is originOffsetFromBottom pixels from the bottom, 
-        // and we want origin at offset.y, then the image center should be offset by:
-        let imageCenterYOffset = offset.y - accidentalInfo.originOffsetFromBottom + (targetHeight / 2)
+        // Scale the origin offset to the target image height
+        let scaledOriginOffset = accidentalInfo.originOffsetFromBottom * (targetHeight / accidentalInfo.svgHeight)
+        
+        // If the origin is scaledOriginOffset pixels from the bottom of the image,
+        // and we want the origin at offset.y, then the image center should be offset by:
+        let imageCenterYOffset = offset.y + scaledOriginOffset - (targetHeight / 2)
         
         return AnyView(
             Image(accidentalInfo.imageName)
@@ -114,11 +126,14 @@ struct MusicalSymbolImageManager {
         }
         
         // Calculate the correct position for the image center
-        // If origin is originOffsetFromBottom pixels from the bottom, 
-        // and we want origin at position.y, then:
-        // - Bottom of image should be at: position.y - originOffsetFromBottom  
-        // - Center of image should be at: position.y - originOffsetFromBottom + (targetHeight / 2)
-        let imageCenterY = position.y - accidentalInfo.originOffsetFromBottom + (targetHeight / 2)
+        // Scale the origin offset to the target image height
+        let scaledOriginOffset = accidentalInfo.originOffsetFromBottom * (targetHeight / accidentalInfo.svgHeight)
+        
+        // If the origin is scaledOriginOffset pixels from the bottom of the image,
+        // and we want the origin at position.y, then:
+        // - Bottom of image should be at: position.y + scaledOriginOffset  
+        // - Center of image should be at: position.y + scaledOriginOffset - (targetHeight / 2)
+        let imageCenterY = position.y + scaledOriginOffset - (targetHeight / 2)
         
         return AnyView(
             Image(accidentalInfo.imageName)

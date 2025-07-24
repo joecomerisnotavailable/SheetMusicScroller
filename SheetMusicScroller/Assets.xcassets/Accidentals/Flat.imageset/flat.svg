@@ -10,5 +10,7 @@
     <!-- Bottom ring/loop (center at origin y=35) -->
     <circle cx="7.5" cy="35" r="4" fill="none" stroke-width="1.5"/>
     <circle cx="7.5" cy="35" r="2" fill="black"/>
+    <!-- Blue dot marking the origin point (center of bottom loop) -->
+    <circle cx="7.5" cy="35" r="2" fill="blue"/>
   </g>
 </svg>

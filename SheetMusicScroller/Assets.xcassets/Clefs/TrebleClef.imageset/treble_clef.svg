@@ -11,5 +11,7 @@
     <path d="M20,85 C26,85 30,89 30,95 C30,101 26,105 20,105 C14,105 10,101 10,95 C10,89 14,85 20,85"/>
     <!-- Top decoration -->
     <circle cx="20" cy="15" r="3"/>
+    <!-- Blue dot marking the origin point (center of bottom loop) -->
+    <circle cx="20" cy="95" r="2" fill="blue"/>
   </g>
 </svg>
