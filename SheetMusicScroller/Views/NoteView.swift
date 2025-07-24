@@ -23,13 +23,15 @@ struct NoteView: View {
                 .fill(noteColor)
                 .frame(width: noteSize, height: noteSize)
             
-            // Accidental symbols (sharp/flat)
+            // Accidental symbols using image assets (sharp/flat)
             let accidental = timedNote.accidentalDisplay(in: musicContext)
             if !accidental.isEmpty {
-                Text(accidental)
-                    .font(.system(size: noteSize * 0.8))
-                    .foregroundColor(noteColor)
-                    .offset(x: -noteSize * 0.8, y: 0)
+                MusicalSymbolImageManager.accidentalImageView(
+                    for: accidental,
+                    targetHeight: noteSize * 0.8,
+                    at: CGPoint(x: 0, y: 0)  // Will be offset by the parent ZStack
+                )
+                .offset(x: -noteSize * 0.8, y: 0)
             }
             
             // Note stem (for eighth and sixteenth notes)
