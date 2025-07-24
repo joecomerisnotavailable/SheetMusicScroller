@@ -20,7 +20,7 @@ struct MusicalSymbolImageManager {
     static let clefImages: [Clef: ClefImageInfo] = [
         .treble: ClefImageInfo(
             imageName: "TrebleClef",
-            originOffsetFromBottom: 10,  // Origin at bottom loop (y=90 in 100px image)
+            originOffsetFromBottom: 15,  // Origin at bottom loop center (y=90 in 100px image, so 10px from bottom + 5px to center)
             referenceNoteName: "G4"
         ),
         .bass: ClefImageInfo(
@@ -42,9 +42,9 @@ struct MusicalSymbolImageManager {
     
     /// Accidental image configurations
     static let accidentalImages: [String: AccidentalImageInfo] = [
-        "♯": AccidentalImageInfo(imageName: "Sharp", originOffsetFromBottom: 20), // Origin at center intersection
-        "♭": AccidentalImageInfo(imageName: "Flat", originOffsetFromBottom: 5),  // Origin at bottom loop (y=35 in 40px image)
-        "♮": AccidentalImageInfo(imageName: "Natural", originOffsetFromBottom: 20) // Origin at center
+        "♯": AccidentalImageInfo(imageName: "Sharp", originOffsetFromBottom: 15), // Origin at center intersection (y=15 in 30px image)
+        "♭": AccidentalImageInfo(imageName: "Flat", originOffsetFromBottom: 5),  // Origin at bottom ring center (y=35 in 40px image)
+        "♮": AccidentalImageInfo(imageName: "Natural", originOffsetFromBottom: 15) // Origin at center (y=15 in 30px image)
     ]
     
     /// Creates a properly positioned clef image view

@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="20" height="40" viewBox="0 0 20 40" xmlns="http://www.w3.org/2000/svg">
-  <!-- Sharp accidental with origin at center intersection -->
-  <path d="M6 5 L6 35 M14 5 L14 35 M2 15 L18 12 M2 25 L18 22" stroke="black" stroke-width="2" fill="none"/>
+<svg width="15" height="30" viewBox="0 0 15 30" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sharp accidental with origin at center intersection (x=7.5, y=15) -->
+  <!-- The intersection of the vertical and horizontal lines is our origin -->
+  <g fill="none" stroke="black" stroke-width="1.5">
+    <!-- Vertical lines -->
+    <line x1="4" y1="2" x2="4" y2="28"/>
+    <line x1="11" y1="2" x2="11" y2="28"/>
+    <!-- Horizontal lines (slightly angled) -->
+    <line x1="1" y1="10" x2="14" y2="8"/>
+    <line x1="1" y1="20" x2="14" y2="18"/>
+  </g>
+  <!-- Origin marker (center point) -->
+  <circle cx="7.5" cy="15" r="0.5" fill="red" opacity="0"/>
 </svg>
