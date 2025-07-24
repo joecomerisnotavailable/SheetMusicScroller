@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="40" height="100" viewBox="0 0 40 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Treble clef with origin at bottom loop (y=90) -->
+  <path d="M20 90 Q5 90 5 75 Q5 60 20 60 Q35 60 35 45 Q35 30 20 30 Q15 30 15 25 Q15 20 20 20 Q25 20 25 15 Q25 10 20 10 Q10 10 10 20 Q10 35 20 45 Q30 45 30 30 Q30 15 20 5 Q5 5 5 20 Q5 35 15 45 Q25 55 25 70 Q25 85 15 90 Q20 95 20 90 Z" fill="black"/>
+</svg>

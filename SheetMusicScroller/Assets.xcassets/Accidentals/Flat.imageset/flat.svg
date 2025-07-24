@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="20" height="40" viewBox="0 0 20 40" xmlns="http://www.w3.org/2000/svg">
+  <!-- Flat accidental with origin at bottom loop (y=35) -->
+  <path d="M5 0 L5 35 Q5 40 10 40 Q15 40 15 35 Q15 30 10 30 Q5 30 5 35" fill="black" stroke="black" stroke-width="1"/>
+  <path d="M5 0 L5 20 Q10 15 15 20 Q10 25 5 20" fill="black"/>
+</svg>

@@ -20,7 +20,7 @@ struct MusicalSymbolImageManager {
     static let clefImages: [Clef: ClefImageInfo] = [
         .treble: ClefImageInfo(
             imageName: "TrebleClef",
-            originOffsetFromBottom: 20,  // Origin at G4 curl position
+            originOffsetFromBottom: 10,  // Origin at bottom loop (y=90 in 100px image)
             referenceNoteName: "G4"
         ),
         .bass: ClefImageInfo(
@@ -42,9 +42,9 @@ struct MusicalSymbolImageManager {
     
     /// Accidental image configurations
     static let accidentalImages: [String: AccidentalImageInfo] = [
-        "♯": AccidentalImageInfo(imageName: "Sharp", originOffsetFromBottom: 15),
-        "♭": AccidentalImageInfo(imageName: "Flat", originOffsetFromBottom: 10),
-        "♮": AccidentalImageInfo(imageName: "Natural", originOffsetFromBottom: 15)
+        "♯": AccidentalImageInfo(imageName: "Sharp", originOffsetFromBottom: 20), // Origin at center intersection
+        "♭": AccidentalImageInfo(imageName: "Flat", originOffsetFromBottom: 5),  // Origin at bottom loop (y=35 in 40px image)
+        "♮": AccidentalImageInfo(imageName: "Natural", originOffsetFromBottom: 20) // Origin at center
     ]
     
     /// Creates a properly positioned clef image view
@@ -58,6 +58,13 @@ struct MusicalSymbolImageManager {
             return AnyView(EmptyView())
         }
         
+        // Calculate the correct position for the image center
+        // If origin is originOffsetFromBottom pixels from the bottom, 
+        // and we want origin at position.y, then:
+        // - Bottom of image should be at: position.y - originOffsetFromBottom
+        // - Center of image should be at: position.y - originOffsetFromBottom + (targetHeight / 2)
+        let imageCenterY = position.y - clefInfo.originOffsetFromBottom + (targetHeight / 2)
+        
         return AnyView(
             Image(clefInfo.imageName)
                 .resizable()
@@ -65,8 +72,33 @@ struct MusicalSymbolImageManager {
                 .frame(height: targetHeight)
                 .position(
                     x: position.x,
-                    y: position.y + (targetHeight / 2) - clefInfo.originOffsetFromBottom
+                    y: imageCenterY
                 )
+        )
+    }
+    
+    /// Creates a properly positioned accidental image view for use within a ZStack (uses offset)
+    /// - Parameters:
+    ///   - symbol: The accidental symbol (♯, ♭, ♮)
+    ///   - targetHeight: Desired height in pixels for the image
+    ///   - offset: The offset from the parent's center where the origin should be placed
+    /// - Returns: A SwiftUI Image view positioned correctly
+    static func accidentalImageViewWithOffset(for symbol: String, targetHeight: CGFloat, offset: CGPoint) -> some View {
+        guard let accidentalInfo = accidentalImages[symbol] else {
+            return AnyView(EmptyView())
+        }
+        
+        // Calculate the correct offset for the image center
+        // If origin is originOffsetFromBottom pixels from the bottom, 
+        // and we want origin at offset.y, then the image center should be offset by:
+        let imageCenterYOffset = offset.y - accidentalInfo.originOffsetFromBottom + (targetHeight / 2)
+        
+        return AnyView(
+            Image(accidentalInfo.imageName)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: targetHeight)
+                .offset(x: offset.x, y: imageCenterYOffset)
         )
     }
     
@@ -81,6 +113,13 @@ struct MusicalSymbolImageManager {
             return AnyView(EmptyView())
         }
         
+        // Calculate the correct position for the image center
+        // If origin is originOffsetFromBottom pixels from the bottom, 
+        // and we want origin at position.y, then:
+        // - Bottom of image should be at: position.y - originOffsetFromBottom  
+        // - Center of image should be at: position.y - originOffsetFromBottom + (targetHeight / 2)
+        let imageCenterY = position.y - accidentalInfo.originOffsetFromBottom + (targetHeight / 2)
+        
         return AnyView(
             Image(accidentalInfo.imageName)
                 .resizable()
@@ -88,7 +127,7 @@ struct MusicalSymbolImageManager {
                 .frame(height: targetHeight)
                 .position(
                     x: position.x,
-                    y: position.y + (targetHeight / 2) - accidentalInfo.originOffsetFromBottom
+                    y: imageCenterY
                 )
         )
     }

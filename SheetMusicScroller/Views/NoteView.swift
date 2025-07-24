@@ -26,12 +26,12 @@ struct NoteView: View {
             // Accidental symbols using image assets (sharp/flat)
             let accidental = timedNote.accidentalDisplay(in: musicContext)
             if !accidental.isEmpty {
-                MusicalSymbolImageManager.accidentalImageView(
+                // Position accidental to the left of the note head
+                MusicalSymbolImageManager.accidentalImageViewWithOffset(
                     for: accidental,
                     targetHeight: noteSize * 0.8,
-                    at: CGPoint(x: 0, y: 0)  // Will be offset by the parent ZStack
+                    offset: CGPoint(x: -noteSize * 0.8, y: 0)
                 )
-                .offset(x: -noteSize * 0.8, y: 0)
             }
             
             // Note stem (for eighth and sixteenth notes)
