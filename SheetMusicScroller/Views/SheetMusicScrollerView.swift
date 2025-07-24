@@ -65,11 +65,11 @@ struct SheetMusicScrollerView: View {
                 .foregroundColor(.secondary)
             
             HStack {
-                Text("Tempo: \(Int(sheetMusic.tempo)) BPM")
+                Text("Tempo: \(Int(sheetMusic.musicContext.tempo)) BPM")
                 Text("•")
                 Text(sheetMusic.timeSignature)
                 Text("•")
-                Text(sheetMusic.keySignature)
+                Text(sheetMusic.musicContext.keySignature)
             }
             .font(.caption)
             .foregroundColor(.secondary)
@@ -104,24 +104,24 @@ struct SheetMusicScrollerView: View {
             
             // Scrolling score with fixed gutter
             ScoreView(
-                notes: sheetMusic.notes,
+                sheetMusic: sheetMusic,
                 activeNotes: Set(activeNotes.map { $0.id }),
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
                 squiggleColor: squiggleColor
             )
-            .frame(height: 200)
+            .frame(height: 220)  // Increased to accommodate extended staff range
             
             // Historical marker squiggle
             SquiggleView(
-                height: 180,
+                height: 200,  // Increased height to match new frame
                 currentYPosition: currentSquiggleYPosition,
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
                 tipColor: squiggleColor
             )
         }
-        .frame(height: 200)
+        .frame(height: 220)  // Increased to match ScoreView height
         .clipped()
     }
     
@@ -213,48 +213,159 @@ struct SheetMusicScrollerView: View {
         .cornerRadius(8)
     }
     
-    private var activeNotes: [Note] {
+    private var activeNotes: [TimedNote] {
         // In pitch mode, we don't have "active" notes based on time
         // This could be enhanced in the future to show notes that match current pitch
         return []
     }
     
-    /// Calculate the current Y position of the squiggle tip based on live pitch
+    /// Calculate the current Y position of the squiggle tip using the exact 4-step algorithm specified
+    /// Step 1: Read detected frequency from microphone
+    /// Step 2: Use noteNameFromFrequency to get nearest note name
+    /// Step 3: Use getYFromNoteAndKey to get initial Y coordinate (yAnchor)
+    /// Step 4: Apply frequency interpolation using the specified formula
     private var currentSquiggleYPosition: CGFloat {
         let staffHeight: CGFloat = 120
-        let staffCenter = staffHeight / 2
-        let lineSpacing = staffHeight / 6
         
-        // Use live pitch detection
-        if pitchDetector.currentFrequency > 0 {
-            let pitchPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
-            return staffCenter + (CGFloat(pitchPosition) * lineSpacing)
-        } else {
-            // No pitch detected, keep at center
-            return staffCenter
+        // Step 1: Read detected frequency from microphone
+        guard pitchDetector.currentFrequency > 0 && pitchDetector.currentAmplitude > 0.01 else {
+            // No pitch detected, return center position
+            return staffHeight / 2
         }
+        
+        let freq = pitchDetector.currentFrequency
+        let baseHz = sheetMusic.musicContext.a4Reference
+        let keySignature = sheetMusic.musicContext.keySignature
+        let clef = sheetMusic.musicContext.clef
+        
+        // Step 2: Use noteNameFromFrequency to get nearest note name
+        let nearestNoteName = StaffPositionMapper.noteNameFromFrequency(freq, a4Reference: baseHz)
+        
+        // Step 3: Use getYFromNoteAndKey to get initial Y coordinate (yAnchor)
+        let yAnchor = StaffPositionMapper.getYFromNoteAndKey(nearestNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        
+        // Step 4: Apply frequency interpolation using the exact specified formula
+        let freqTrue = StaffPositionMapper.noteNameToFrequency(nearestNoteName, a4Reference: baseHz)
+        let freqDelta = freq - freqTrue
+        
+        // If frequency is very close to the exact note, don't interpolate
+        if abs(freqDelta) < 0.5 {
+            return yAnchor
+        }
+        
+        // Find noteNext (next note whose staff position differs from nearestNoteName)
+        let direction = freqDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
+        let noteNext = StaffPositionMapper.nextNoteWithDifferentStaffPosition(
+            from: nearestNoteName, 
+            direction: direction, 
+            keySignature: keySignature, 
+            clef: clef
+        )
+        
+        // Calculate yNext using getYFromNoteAndKey
+        let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        
+        // Find freqTop (frequency of the last note in direction that has same staff position as nearestNoteName)
+        let freqTop = findFreqTopForInterpolation(
+            nearestNoteName: nearestNoteName,
+            direction: direction,
+            keySignature: keySignature,
+            clef: clef,
+            baseHz: baseHz
+        )
+        
+        // Calculate freqNext (frequency of noteNext)
+        let freqNext = StaffPositionMapper.noteNameToFrequency(noteNext, a4Reference: baseHz)
+        
+        // Apply the exact formula: |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - freqTop|/|freqTop - freqNext|
+        // Solving for ySquiggle: ySquiggle = yAnchor ± |yAnchor - yNext| * |freq - freqTop|/|freqTop - freqNext|
+        let freqRange = abs(freqTop - freqNext)
+        let freqOffset = abs(freq - freqTop)
+        
+        guard freqRange > 0 else { return yAnchor }
+        
+        let interpolationRatio = min(freqOffset / freqRange, 1.0)  // Clamp to prevent over-interpolation
+        let yRange = yNext - yAnchor
+        let ySquiggle = yAnchor + yRange * interpolationRatio
+        
+        return ySquiggle
     }
     
-    /// Get the current squiggle tip color based on pitch and musical context
-    private var squiggleColor: Color {
-        // Color based on live pitch detection - vary by frequency and signal strength
-        if pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 {
-            // Color mapping based on detected frequency
-            let staffPosition = pitchDetector.frequencyToStaffPosition(pitchDetector.currentFrequency)
+    /// Find the frequency of the last note in the given direction whose staff position 
+    /// does not differ from the nearest note's staff position
+    private func findFreqTopForInterpolation(nearestNoteName: String, direction: Int, keySignature: String, clef: Clef, baseHz: Double) -> Double {
+        let context = MusicContext(keySignature: keySignature, clef: clef)
+        let referenceMidi = StaffPositionMapper.noteNameToMidiNote(nearestNoteName)
+        let referencePosition = StaffPositionMapper.noteNameToStaffPosition(nearestNoteName, context: context)
+        
+        var currentMidi = referenceMidi
+        var lastMatchingNoteName = nearestNoteName
+        
+        // Search in the direction until we find a note with different staff position
+        for _ in 0..<12 { // Don't go more than an octave
+            currentMidi += direction
+            let currentNoteName = StaffPositionMapper.midiNoteToNoteName(currentMidi)
+            let currentPosition = StaffPositionMapper.noteNameToStaffPosition(currentNoteName, context: context)
             
-            if staffPosition < -3.0 {
-                return .purple  // Very high frequencies
-            } else if staffPosition < -1.0 {
-                return .blue    // High frequencies  
-            } else if staffPosition < 1.0 {
-                return .green   // Medium frequencies
-            } else if staffPosition < 3.0 {
-                return .orange  // Lower frequencies
-            } else {
-                return .red     // Very low frequencies
+            if abs(currentPosition - referencePosition) > 0.1 {
+                // Found a note with different staff position, return the last matching note's frequency
+                break
             }
+            
+            lastMatchingNoteName = currentNoteName
+        }
+        
+        return StaffPositionMapper.noteNameToFrequency(lastMatchingNoteName, a4Reference: baseHz)
+    }
+    
+    /// Get the current squiggle tip color based on pitch distance from target
+    private var squiggleColor: Color {
+        // If no pitch detected, show gray
+        guard pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 else {
+            return .gray
+        }
+        
+        // Get the current detected note and frequency
+        let currentFreq = pitchDetector.currentFrequency
+        let baseHz = sheetMusic.musicContext.a4Reference
+        
+        // Find the target frequency (first note in the piece for now - D4)
+        guard let firstNote = sheetMusic.timedNotes.first else {
+            return .gray
+        }
+        
+        let targetNoteName = firstNote.note.noteName
+        let targetFreq = StaffPositionMapper.noteNameToFrequency(targetNoteName, a4Reference: baseHz)
+        
+        // Calculate frequency difference
+        let freqDiff = currentFreq - targetFreq
+        
+        // Calculate semitone difference (12 semitones = octave, frequency doubles)
+        let semitoneDiff = 12.0 * log2(currentFreq / targetFreq)
+        
+        // If very close to target (within 0.1 semitones), show green
+        if abs(semitoneDiff) < 0.1 {
+            return .green
+        }
+        
+        // Color interpolation based on distance from target
+        let maxSemitones: Double = 1.0  // Full color at 1 semitone distance
+        let normalizedDistance = min(abs(semitoneDiff) / maxSemitones, 1.0)
+        
+        if freqDiff < 0 {
+            // Below target frequency -> purple
+            let purpleIntensity = normalizedDistance
+            let greenComponent = max(0, 1.0 - purpleIntensity)
+            return Color(red: purpleIntensity * 0.5 + greenComponent * 0.0,
+                        green: greenComponent,
+                        blue: purpleIntensity * 0.8 + greenComponent * 0.5)
         } else {
-            return .gray // No signal detected
+            // Above target frequency -> red  
+            let redIntensity = normalizedDistance
+            let greenComponent = max(0, 1.0 - redIntensity)
+            return Color(red: redIntensity + greenComponent * 0.0,
+                        green: greenComponent,
+                        blue: greenComponent * 0.0)
         }
     }
     
