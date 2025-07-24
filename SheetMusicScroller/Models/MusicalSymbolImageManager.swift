@@ -65,7 +65,7 @@ struct MusicalSymbolImageManager {
                 .frame(height: targetHeight)
                 .position(
                     x: position.x,
-                    y: position.y + clefInfo.originOffsetFromBottom - targetHeight
+                    y: position.y + (targetHeight / 2) - clefInfo.originOffsetFromBottom
                 )
         )
     }
@@ -88,7 +88,7 @@ struct MusicalSymbolImageManager {
                 .frame(height: targetHeight)
                 .position(
                     x: position.x,
-                    y: position.y + accidentalInfo.originOffsetFromBottom - targetHeight
+                    y: position.y + (targetHeight / 2) - accidentalInfo.originOffsetFromBottom
                 )
         )
     }
