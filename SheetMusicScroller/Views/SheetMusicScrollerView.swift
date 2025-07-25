@@ -279,14 +279,14 @@ struct SheetMusicScrollerView: View {
         return sharePosition
     }
     
-    /// Calculate the current Y position of the squiggle tip using the new unified algorithm
+    /// Calculate the current Y position of the squiggle tip using the unified algorithm
     /// that references the currently active note instead of always the nearest detected note.
     /// 
     /// Two cases are implemented:
     /// Case 1: If active note and nearest detected note share staff position (enharmonics),
-    ///         use active note frequency for interpolation between active note and next note
-    /// Case 2: If they differ in staff position, use active note for color but 
-    ///         anchor position at nearest detected note frequency as before
+    ///         use active note frequency for interpolation (replaces freqTop with freqActiveNote)
+    /// Case 2: If they differ in staff position or no active note exists,
+    ///         use nearest detected note frequency for interpolation (replaces freqTop with freqTrue)
     private var currentSquiggleYPosition: CGFloat {
         let staffHeight: CGFloat = 120
         
@@ -301,215 +301,116 @@ struct SheetMusicScrollerView: View {
         let keySignature = sheetMusic.musicContext.keySignature
         let clef = sheetMusic.musicContext.clef
         
-        // Get the currently active note
-        guard let activeNote = currentlyActiveNote else {
-            print("🎯 SquigglePosition: No active note found, falling back to center position")
-            return staffHeight / 2
-        }
-        
-        let activeNoteName = activeNote.note.noteName
-        let freqActiveNote = StaffPositionMapper.noteNameToFrequency(activeNoteName, a4Reference: baseHz)
-        
         // Step 2: Use noteNameFromFrequency to get nearest detected note name
         let nearestNoteName = StaffPositionMapper.noteNameFromFrequency(freq, a4Reference: baseHz)
         
-        print("🎯 SquigglePosition: Active note: \(activeNoteName) (\(String(format: "%.1f", freqActiveNote))Hz), Nearest detected: \(nearestNoteName), Detected freq: \(String(format: "%.1f", freq))Hz")
-        
         // Determine which case we're in
-        let shareStaffPosition = doNotesShareStaffPosition(activeNoteName, nearestNoteName, keySignature: keySignature, clef: clef)
+        let activeNote = currentlyActiveNote
+        let isCase1: Bool
+        let anchorNoteName: String
+        let freqTop: Double  // This replaces the old freqTop with appropriate value
         
-        if shareStaffPosition {
-            // Case 1: Active note and nearest detected note share staff position (enharmonics)
-            print("🎯 SquigglePosition: Case 1 - Enharmonic equivalence detected")
-            return calculateCase1Position(
-                activeNoteName: activeNoteName,
-                freqActiveNote: freqActiveNote,
-                detectedFreq: freq,
-                keySignature: keySignature,
-                clef: clef,
-                staffHeight: staffHeight,
-                baseHz: baseHz
-            )
+        if let activeNote = activeNote {
+            let activeNoteName = activeNote.note.noteName
+            let shareStaffPosition = doNotesShareStaffPosition(activeNoteName, nearestNoteName, keySignature: keySignature, clef: clef)
+            
+            if shareStaffPosition {
+                // Case 1: Enharmonic equivalence - use active note frequency as freqTop
+                isCase1 = true
+                anchorNoteName = activeNoteName
+                freqTop = StaffPositionMapper.noteNameToFrequency(activeNoteName, a4Reference: baseHz)
+                print("🎯 SquigglePosition: Case 1 - Using active note \(activeNoteName) as anchor (freqTop=\(String(format: "%.1f", freqTop))Hz)")
+            } else {
+                // Case 2: Different staff positions - use nearest detected note frequency as freqTop
+                isCase1 = false
+                anchorNoteName = nearestNoteName
+                freqTop = StaffPositionMapper.noteNameToFrequency(nearestNoteName, a4Reference: baseHz)
+                print("🎯 SquigglePosition: Case 2 - Using nearest note \(nearestNoteName) as anchor (freqTop=\(String(format: "%.1f", freqTop))Hz)")
+            }
         } else {
-            // Case 2: Different staff positions - use active note for color, nearest detected for position anchor
-            print("🎯 SquigglePosition: Case 2 - Different staff positions")
-            return calculateCase2Position(
-                nearestNoteName: nearestNoteName,
-                detectedFreq: freq,
+            // No active note - treat as same note scenario (Case 2 logic with nearest note)
+            isCase1 = false
+            anchorNoteName = nearestNoteName
+            freqTop = StaffPositionMapper.noteNameToFrequency(nearestNoteName, a4Reference: baseHz)
+            print("🎯 SquigglePosition: No active note - Using nearest note \(nearestNoteName) as anchor (freqTop=\(String(format: "%.1f", freqTop))Hz)")
+        }
+        
+        // Step 3: Use getYFromNoteAndKey to get initial Y coordinate (yAnchor)
+        let yAnchor = StaffPositionMapper.getYFromNoteAndKey(anchorNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        
+        // Step 4: Apply frequency interpolation using the original algorithm with appropriate freqTop
+        let freqDelta = freq - freqTop
+        
+        // If frequency is very close to the anchor note, don't interpolate
+        if abs(freqDelta) < 0.5 {
+            print("🎯 SquigglePosition: Close to anchor frequency, no interpolation needed")
+            return yAnchor
+        }
+        
+        // Find noteNext (next note whose staff position differs from anchorNoteName)
+        let direction = freqDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
+        let noteNext = StaffPositionMapper.nextNoteWithDifferentStaffPosition(
+            from: anchorNoteName, 
+            direction: direction, 
+            keySignature: keySignature, 
+            clef: clef
+        )
+        
+        // Safety check: ensure we got a valid next note
+        guard !noteNext.isEmpty && noteNext != anchorNoteName else {
+            print("🎯 SquigglePosition: Could not find valid next note, returning anchor position")
+            return yAnchor
+        }
+        
+        // Calculate yNext using getYFromNoteAndKey
+        let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        
+        // For Case 1, freqTop is already set to freqActiveNote
+        // For Case 2, we need to find the actual freqTop (last note with same staff position)
+        let finalFreqTop: Double
+        if isCase1 {
+            finalFreqTop = freqTop  // Already set to active note frequency
+        } else {
+            finalFreqTop = findFreqTopForInterpolation(
+                nearestNoteName: anchorNoteName,
+                direction: direction,
                 keySignature: keySignature,
                 clef: clef,
-                staffHeight: staffHeight,
                 baseHz: baseHz
             )
         }
-    }
-    
-    /// Calculate squiggle position for Case 1: enharmonic equivalence
-    /// Use active note frequency as target and interpolate between active note and next note
-    /// This provides more intuitive feedback when the detected note is enharmonically equivalent
-    /// to the expected note (e.g., F# detected when Gb is expected)
-    private func calculateCase1Position(
-        activeNoteName: String,
-        freqActiveNote: Double,
-        detectedFreq: Double,
-        keySignature: String,
-        clef: Clef,
-        staffHeight: CGFloat,
-        baseHz: Double
-    ) -> CGFloat {
-        
-        // Step 3: Use getYFromNoteAndKey to get Y coordinate for active note (yAnchor)
-        let yAnchor = StaffPositionMapper.getYFromNoteAndKey(activeNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
-        
-        // Step 4: Apply frequency interpolation using active note frequency as reference
-        let freqDelta = detectedFreq - freqActiveNote
-        
-        print("🎯 Case1: Active note Y: \(String(format: "%.1f", yAnchor)), freq delta: \(String(format: "%.2f", freqDelta))Hz")
-        
-        // If frequency is very close to the active note, don't interpolate
-        if abs(freqDelta) < 0.5 {
-            print("🎯 Case1: Close to active note frequency, no interpolation needed")
-            return yAnchor
-        }
-        
-        // Find noteNext (next note whose staff position differs from activeNoteName)
-        let direction = freqDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
-        let noteNext = StaffPositionMapper.nextNoteWithDifferentStaffPosition(
-            from: activeNoteName, 
-            direction: direction, 
-            keySignature: keySignature, 
-            clef: clef
-        )
-        
-        // Safety check: ensure we got a valid next note
-        guard !noteNext.isEmpty && noteNext != activeNoteName else {
-            print("🎯 Case1: Could not find valid next note, returning anchor position")
-            return yAnchor
-        }
-        
-        // Calculate yNext using getYFromNoteAndKey
-        let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
         
         // Calculate freqNext (frequency of noteNext)
         let freqNext = StaffPositionMapper.noteNameToFrequency(noteNext, a4Reference: baseHz)
         
-        print("🎯 Case1: Next note: \(noteNext), Y: \(String(format: "%.1f", yNext)), freq: \(String(format: "%.1f", freqNext))Hz")
-        
-        // Safety check: ensure frequencies are valid and different
-        guard freqNext > 0 && abs(freqActiveNote - freqNext) > 0.1 else {
-            print("🎯 Case1: Invalid frequency range, returning anchor position")
-            return yAnchor
-        }
-        
-        // Apply interpolation: |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - freqActiveNote|/|freqActiveNote - freqNext|
-        let freqRange = abs(freqActiveNote - freqNext)
-        let freqOffset = abs(detectedFreq - freqActiveNote)
-        
-        let interpolationRatio = min(freqOffset / freqRange, 1.0)  // Clamp to prevent over-interpolation
-        let yRange = yNext - yAnchor
-        let ySquiggle = yAnchor + yRange * interpolationRatio
-        
-        print("🎯 Case1: Interpolation ratio: \(String(format: "%.3f", interpolationRatio)), final Y: \(String(format: "%.1f", ySquiggle))")
-        
-        // Safety check: ensure Y position is within reasonable bounds
-        let clampedY = max(0, min(staffHeight, ySquiggle))
-        if clampedY != ySquiggle {
-            print("🎯 Case1: Y position clamped from \(String(format: "%.1f", ySquiggle)) to \(String(format: "%.1f", clampedY))")
-        }
-        
-        return clampedY
-    }
-    
-    /// Calculate squiggle position for Case 2: different staff positions
-    /// Use nearest detected note frequency as anchor (original algorithm)
-    /// This maintains the original behavior when the detected note is not enharmonically
-    /// equivalent to the expected note, while still using the active note for color feedback
-    private func calculateCase2Position(
-        nearestNoteName: String,
-        detectedFreq: Double,
-        keySignature: String,
-        clef: Clef,
-        staffHeight: CGFloat,
-        baseHz: Double
-    ) -> CGFloat {
-        
-        // Step 3: Use getYFromNoteAndKey to get initial Y coordinate (yAnchor) for nearest detected note
-        let yAnchor = StaffPositionMapper.getYFromNoteAndKey(nearestNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
-        
-        // Step 4: Apply frequency interpolation using the original algorithm (nearest detected note as reference)
-        let freqTrue = StaffPositionMapper.noteNameToFrequency(nearestNoteName, a4Reference: baseHz)
-        let freqDelta = detectedFreq - freqTrue
-        
-        print("🎯 Case2: Nearest note: \(nearestNoteName), Y: \(String(format: "%.1f", yAnchor)), freq delta: \(String(format: "%.2f", freqDelta))Hz")
-        
-        // Safety check: ensure we have a valid frequency
-        guard freqTrue > 0 else {
-            print("🎯 Case2: Invalid freqTrue, returning anchor position")
-            return yAnchor
-        }
-        
-        // If frequency is very close to the exact note, don't interpolate
-        if abs(freqDelta) < 0.5 {
-            print("🎯 Case2: Close to nearest note frequency, no interpolation needed")
-            return yAnchor
-        }
-        
-        // Find noteNext (next note whose staff position differs from nearestNoteName)
-        let direction = freqDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
-        let noteNext = StaffPositionMapper.nextNoteWithDifferentStaffPosition(
-            from: nearestNoteName, 
-            direction: direction, 
-            keySignature: keySignature, 
-            clef: clef
-        )
-        
-        // Safety check: ensure we got a valid next note
-        guard !noteNext.isEmpty && noteNext != nearestNoteName else {
-            print("🎯 Case2: Could not find valid next note, returning anchor position")
-            return yAnchor
-        }
-        
-        // Calculate yNext using getYFromNoteAndKey
-        let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
-        
-        // Find freqTop (frequency of the last note in direction that has same staff position as nearestNoteName)
-        let freqTop = findFreqTopForInterpolation(
-            nearestNoteName: nearestNoteName,
-            direction: direction,
-            keySignature: keySignature,
-            clef: clef,
-            baseHz: baseHz
-        )
-        
-        // Calculate freqNext (frequency of noteNext)
-        let freqNext = StaffPositionMapper.noteNameToFrequency(noteNext, a4Reference: baseHz)
-        
-        print("🎯 Case2: Next note: \(noteNext), Y: \(String(format: "%.1f", yNext)), freqTop: \(String(format: "%.1f", freqTop))Hz, freqNext: \(String(format: "%.1f", freqNext))Hz")
+        print("🎯 SquigglePosition: Anchor note: \(anchorNoteName), Y: \(String(format: "%.1f", yAnchor)), Next note: \(noteNext), Y: \(String(format: "%.1f", yNext))")
+        print("🎯 SquigglePosition: finalFreqTop: \(String(format: "%.1f", finalFreqTop))Hz, freqNext: \(String(format: "%.1f", freqNext))Hz")
         
         // Safety checks: ensure frequencies are valid and different
-        guard freqTop > 0 && freqNext > 0 && abs(freqTop - freqNext) > 0.1 else {
-            print("🎯 Case2: Invalid frequency range, returning anchor position")
+        guard finalFreqTop > 0 && freqNext > 0 && abs(finalFreqTop - freqNext) > 0.1 else {
+            print("🎯 SquigglePosition: Invalid frequency range, returning anchor position")
             return yAnchor
         }
         
-        // Apply the exact formula: |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - freqTop|/|freqTop - freqNext|
-        let freqRange = abs(freqTop - freqNext)
-        let freqOffset = abs(detectedFreq - freqTop)
+        // Apply the exact formula: |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - finalFreqTop|/|finalFreqTop - freqNext|
+        let freqRange = abs(finalFreqTop - freqNext)
+        let freqOffset = abs(freq - finalFreqTop)
         
         let interpolationRatio = min(freqOffset / freqRange, 1.0)  // Clamp to prevent over-interpolation
         let yRange = yNext - yAnchor
         let ySquiggle = yAnchor + yRange * interpolationRatio
         
-        print("🎯 Case2: Interpolation ratio: \(String(format: "%.3f", interpolationRatio)), final Y: \(String(format: "%.1f", ySquiggle))")
+        print("🎯 SquigglePosition: Interpolation ratio: \(String(format: "%.3f", interpolationRatio)), final Y: \(String(format: "%.1f", ySquiggle))")
         
         // Safety check: ensure Y position is within reasonable bounds
         let clampedY = max(0, min(staffHeight, ySquiggle))
         if clampedY != ySquiggle {
-            print("🎯 Case2: Y position clamped from \(String(format: "%.1f", ySquiggle)) to \(String(format: "%.1f", clampedY))")
+            print("🎯 SquigglePosition: Y position clamped from \(String(format: "%.1f", ySquiggle)) to \(String(format: "%.1f", clampedY))")
         }
         
         return clampedY
     }
+
     
     /// Find the frequency of the last note in the given direction whose staff position 
     /// does not differ from the nearest note's staff position
@@ -540,6 +441,7 @@ struct SheetMusicScrollerView: View {
     
     /// Get the current squiggle tip color based on pitch distance from currently active note
     /// This now always references the active note frequency as the target, regardless of case
+    /// If no active note exists, shows grey color
     private var squiggleColor: Color {
         // If no pitch detected, show gray
         guard pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 else {
