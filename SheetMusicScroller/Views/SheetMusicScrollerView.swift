@@ -299,11 +299,13 @@ struct SheetMusicScrollerView: View {
     /// Calculate the current Y position of the squiggle tip using the unified algorithm
     /// that references the currently active note instead of always the nearest detected note.
     /// 
-    /// Two cases are implemented:
-    /// Case 1: If active note and nearest detected note share staff position (enharmonics),
-    ///         use active note frequency for interpolation (replaces freqTop with freqActiveNote)
-    /// Case 2: If they differ in staff position or no active note exists,
-    ///         use nearest detected note frequency for interpolation (replaces freqTop with freqTrue)
+    /// REFACTORED to address feedback:
+    /// - freqTop no longer exists as a separate entity
+    /// - Case 1: freqTop replaced with freqActiveNote (active note frequency)  
+    /// - Case 2: freqTop replaced with freqTrue (nearest detected note frequency)
+    /// - No active note: treated as Case 2 (same note scenario)
+    /// - Active note: determined spatially by squiggle tip position, not score time
+    /// - Unified single function instead of separate case functions
     private var currentSquiggleYPosition: CGFloat {
         let staffHeight: CGFloat = 120
         
