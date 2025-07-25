@@ -8,10 +8,11 @@ struct SheetMusicScrollerView: View {
     @State private var scrollTimer: Timer?
     @StateObject private var pitchDetector = PitchDetector()
     @State private var scoreTime: Double = 0  // Current time position in the score for tracking active notes
+    @State private var noteColors: [UUID: Color] = [:]  // Track persistent color for each note after it passes
     
     private let noteSpacing: CGFloat = 60
     private let scrollSpeed: CGFloat = 30 // pixels per second
-    private let squiggleX: CGFloat = 100   // Fixed x position of squiggle (about 1/8 from left edge)
+    private let squiggleX: CGFloat = 160   // Fixed x position of squiggle (moved right for better visibility)
     
     init(sheetMusic: SheetMusic) {
         self.sheetMusic = sheetMusic
@@ -109,7 +110,8 @@ struct SheetMusicScrollerView: View {
                 activeNotes: Set(activeNotes.map { $0.id }),
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
-                squiggleColor: squiggleColor
+                squiggleColor: squiggleColor,
+                noteColors: noteColors
             )
             .frame(height: 220)  // Increased to accommodate extended staff range
             
@@ -542,12 +544,32 @@ struct SheetMusicScrollerView: View {
             if scoreTime > sheetMusic.totalDuration {
                 scoreTime = 0  // Loop back to beginning
             }
+            
+            // Update persistent note colors for notes that have just passed the squiggle
+            updateNoteColorsForPassedNotes()
         }
     }
     
     private func stopScrolling() {
         scrollTimer?.invalidate()
         scrollTimer = nil
+    }
+    
+    /// Update persistent colors for notes that have just passed the squiggle
+    /// This captures the squiggle color at the moment a note becomes inactive
+    private func updateNoteColorsForPassedNotes() {
+        let gutterWidth: CGFloat = 80
+        
+        for (index, timedNote) in sheetMusic.timedNotes.enumerated() {
+            let noteXPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
+            let hasPassedSquiggle = noteXPosition <= squiggleX
+            
+            // If note has passed squiggle but we don't have a color stored yet, store current squiggle color
+            if hasPassedSquiggle && noteColors[timedNote.id] == nil {
+                noteColors[timedNote.id] = squiggleColor
+                print("🎨 Note \(timedNote.note.noteName) passed squiggle, storing color: \(squiggleColor)")
+            }
+        }
     }
 }
 
