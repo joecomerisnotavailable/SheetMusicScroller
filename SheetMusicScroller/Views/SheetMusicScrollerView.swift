@@ -362,14 +362,18 @@ struct SheetMusicScrollerView: View {
         // Step 4: Apply frequency interpolation using the original algorithm with appropriate freqTop
         let freqDelta = freq - freqTop
         
+        // Determine interpolation direction based on the actual detected frequency vs anchor frequency
+        let anchorFreq = StaffPositionMapper.noteNameToFrequency(anchorNoteName, a4Reference: baseHz)
+        let directionDelta = freq - anchorFreq
+        
         // If frequency is very close to the anchor note, don't interpolate
-        if abs(freqDelta) < 0.5 {
+        if abs(directionDelta) < 0.5 {
             print("🎯 SquigglePosition: Close to anchor frequency, no interpolation needed")
             return yAnchor
         }
         
         // Find noteNext (next note whose staff position differs from anchorNoteName)
-        let direction = freqDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
+        let direction = directionDelta > 0 ? 1 : -1  // 1 for up (higher freq), -1 for down (lower freq)
         let noteNext = StaffPositionMapper.nextNoteWithDifferentStaffPosition(
             from: anchorNoteName, 
             direction: direction, 
@@ -413,11 +417,18 @@ struct SheetMusicScrollerView: View {
             return yAnchor
         }
         
-        // Apply the exact formula: |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - finalFreqTop|/|finalFreqTop - freqNext|
-        let freqRange = abs(finalFreqTop - freqNext)
-        let freqOffset = abs(freq - finalFreqTop)
+        // Apply interpolation formula with proper direction handling
+        let freqRange = freqNext - finalFreqTop  // Maintain sign for direction
+        let freqOffset = freq - finalFreqTop     // Maintain sign for direction
         
-        let interpolationRatio = min(freqOffset / freqRange, 1.0)  // Clamp to prevent over-interpolation
+        // Only interpolate if frequency is between finalFreqTop and freqNext
+        let interpolationRatio: Double
+        if abs(freqRange) > 0.1 {
+            interpolationRatio = max(0.0, min(1.0, freqOffset / freqRange))  // Clamp between 0 and 1
+        } else {
+            interpolationRatio = 0.0  // No interpolation if range is too small
+        }
+        
         let yRange = yNext - yAnchor
         let ySquiggle = yAnchor + yRange * interpolationRatio
         
