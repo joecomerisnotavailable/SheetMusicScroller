@@ -250,6 +250,13 @@ struct SheetMusicScrollerView: View {
     }
     
     /// Determines if two note names share the same staff position (enharmonic equivalence)
+    /// This is used to decide between Case 1 and Case 2 logic for squiggle positioning.
+    /// 
+    /// Examples of enharmonic equivalents that should return true:
+    /// - F#4 and Gb4 (both occupy the same staff line/space)
+    /// - C#4 and Db4 (both occupy the same staff line/space)
+    /// - A#4 and Bb4 (both occupy the same staff line/space)
+    /// 
     /// - Parameters:
     ///   - noteName1: First note name (e.g., "F#4")
     ///   - noteName2: Second note name (e.g., "Gb4")
@@ -262,8 +269,14 @@ struct SheetMusicScrollerView: View {
         let position2 = StaffPositionMapper.noteNameToStaffPosition(noteName2, context: context)
         
         // Consider positions the same if they're within a small tolerance (0.1)
+        // This accounts for floating point precision and ensures enharmonic equivalents
+        // are correctly identified as sharing the same staff position
         let tolerance: Double = 0.1
-        return abs(position1 - position2) <= tolerance
+        let sharePosition = abs(position1 - position2) <= tolerance
+        
+        print("🎼 StaffPosition: \(noteName1)=\(String(format: "%.2f", position1)), \(noteName2)=\(String(format: "%.2f", position2)), share=\(sharePosition)")
+        
+        return sharePosition
     }
     
     /// Calculate the current Y position of the squiggle tip using the new unified algorithm
@@ -333,6 +346,8 @@ struct SheetMusicScrollerView: View {
     
     /// Calculate squiggle position for Case 1: enharmonic equivalence
     /// Use active note frequency as target and interpolate between active note and next note
+    /// This provides more intuitive feedback when the detected note is enharmonically equivalent
+    /// to the expected note (e.g., F# detected when Gb is expected)
     private func calculateCase1Position(
         activeNoteName: String,
         freqActiveNote: Double,
@@ -366,6 +381,12 @@ struct SheetMusicScrollerView: View {
             clef: clef
         )
         
+        // Safety check: ensure we got a valid next note
+        guard !noteNext.isEmpty && noteNext != activeNoteName else {
+            print("🎯 Case1: Could not find valid next note, returning anchor position")
+            return yAnchor
+        }
+        
         // Calculate yNext using getYFromNoteAndKey
         let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
         
@@ -374,14 +395,15 @@ struct SheetMusicScrollerView: View {
         
         print("🎯 Case1: Next note: \(noteNext), Y: \(String(format: "%.1f", yNext)), freq: \(String(format: "%.1f", freqNext))Hz")
         
+        // Safety check: ensure frequencies are valid and different
+        guard freqNext > 0 && abs(freqActiveNote - freqNext) > 0.1 else {
+            print("🎯 Case1: Invalid frequency range, returning anchor position")
+            return yAnchor
+        }
+        
         // Apply interpolation: |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - freqActiveNote|/|freqActiveNote - freqNext|
         let freqRange = abs(freqActiveNote - freqNext)
         let freqOffset = abs(detectedFreq - freqActiveNote)
-        
-        guard freqRange > 0 else { 
-            print("🎯 Case1: Zero frequency range, returning anchor")
-            return yAnchor 
-        }
         
         let interpolationRatio = min(freqOffset / freqRange, 1.0)  // Clamp to prevent over-interpolation
         let yRange = yNext - yAnchor
@@ -389,11 +411,19 @@ struct SheetMusicScrollerView: View {
         
         print("🎯 Case1: Interpolation ratio: \(String(format: "%.3f", interpolationRatio)), final Y: \(String(format: "%.1f", ySquiggle))")
         
-        return ySquiggle
+        // Safety check: ensure Y position is within reasonable bounds
+        let clampedY = max(0, min(staffHeight, ySquiggle))
+        if clampedY != ySquiggle {
+            print("🎯 Case1: Y position clamped from \(String(format: "%.1f", ySquiggle)) to \(String(format: "%.1f", clampedY))")
+        }
+        
+        return clampedY
     }
     
     /// Calculate squiggle position for Case 2: different staff positions
     /// Use nearest detected note frequency as anchor (original algorithm)
+    /// This maintains the original behavior when the detected note is not enharmonically
+    /// equivalent to the expected note, while still using the active note for color feedback
     private func calculateCase2Position(
         nearestNoteName: String,
         detectedFreq: Double,
@@ -412,6 +442,12 @@ struct SheetMusicScrollerView: View {
         
         print("🎯 Case2: Nearest note: \(nearestNoteName), Y: \(String(format: "%.1f", yAnchor)), freq delta: \(String(format: "%.2f", freqDelta))Hz")
         
+        // Safety check: ensure we have a valid frequency
+        guard freqTrue > 0 else {
+            print("🎯 Case2: Invalid freqTrue, returning anchor position")
+            return yAnchor
+        }
+        
         // If frequency is very close to the exact note, don't interpolate
         if abs(freqDelta) < 0.5 {
             print("🎯 Case2: Close to nearest note frequency, no interpolation needed")
@@ -426,6 +462,12 @@ struct SheetMusicScrollerView: View {
             keySignature: keySignature, 
             clef: clef
         )
+        
+        // Safety check: ensure we got a valid next note
+        guard !noteNext.isEmpty && noteNext != nearestNoteName else {
+            print("🎯 Case2: Could not find valid next note, returning anchor position")
+            return yAnchor
+        }
         
         // Calculate yNext using getYFromNoteAndKey
         let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
@@ -444,14 +486,15 @@ struct SheetMusicScrollerView: View {
         
         print("🎯 Case2: Next note: \(noteNext), Y: \(String(format: "%.1f", yNext)), freqTop: \(String(format: "%.1f", freqTop))Hz, freqNext: \(String(format: "%.1f", freqNext))Hz")
         
+        // Safety checks: ensure frequencies are valid and different
+        guard freqTop > 0 && freqNext > 0 && abs(freqTop - freqNext) > 0.1 else {
+            print("🎯 Case2: Invalid frequency range, returning anchor position")
+            return yAnchor
+        }
+        
         // Apply the exact formula: |ySquiggle - yAnchor|/|yAnchor - yNext| = |freq - freqTop|/|freqTop - freqNext|
         let freqRange = abs(freqTop - freqNext)
         let freqOffset = abs(detectedFreq - freqTop)
-        
-        guard freqRange > 0 else { 
-            print("🎯 Case2: Zero frequency range, returning anchor")
-            return yAnchor 
-        }
         
         let interpolationRatio = min(freqOffset / freqRange, 1.0)  // Clamp to prevent over-interpolation
         let yRange = yNext - yAnchor
@@ -459,7 +502,13 @@ struct SheetMusicScrollerView: View {
         
         print("🎯 Case2: Interpolation ratio: \(String(format: "%.3f", interpolationRatio)), final Y: \(String(format: "%.1f", ySquiggle))")
         
-        return ySquiggle
+        // Safety check: ensure Y position is within reasonable bounds
+        let clampedY = max(0, min(staffHeight, ySquiggle))
+        if clampedY != ySquiggle {
+            print("🎯 Case2: Y position clamped from \(String(format: "%.1f", ySquiggle)) to \(String(format: "%.1f", clampedY))")
+        }
+        
+        return clampedY
     }
     
     /// Find the frequency of the last note in the given direction whose staff position 
