@@ -48,12 +48,21 @@ struct ScoreView: View {
     
     private var fixedGutterView: some View {
         HStack(spacing: 10) {
-            // Clef symbol with proper positioning and sizing
+            // Clef image with origin-based positioning
             ZStack {
-                Text(clefSymbol)
-                    .font(.system(size: clefFontSize))
-                    .foregroundColor(.black)
-                    .offset(x: 0, y: clefVerticalOffset)
+                let clefHeight = MusicalSymbolImageManager.calculateClefImageHeight(for: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+                let clefOriginPos = MusicalSymbolImageManager.calculateClefOriginPosition(
+                    for: sheetMusic.musicContext.clef,
+                    keySignature: sheetMusic.musicContext.keySignature,
+                    staffHeight: staffHeight,
+                    xPosition: 20  // Center within the 40pt frame
+                )
+                
+                MusicalSymbolImageManager.clefImageView(
+                    for: sheetMusic.musicContext.clef,
+                    targetHeight: clefHeight,
+                    at: clefOriginPos
+                )
             }
             .frame(width: 40, height: staffHeight)
             
@@ -68,75 +77,21 @@ struct ScoreView: View {
         .frame(width: gutterWidth)
         .background(Color.white.opacity(0.9))
     }
-    
-    private var clefFontSize: CGFloat {
-        // Treble clef should be sized so its curl centers on G4 and tip reaches E5
-        switch sheetMusic.musicContext.clef {
-        case .treble: 
-            // Calculate size based on G4 to E5 distance
-            let g4Y = StaffPositionMapper.getYFromNoteAndKey("G4", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
-            let e5Y = StaffPositionMapper.getYFromNoteAndKey("E5", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
-            let distanceG4ToE5 = g4Y - e5Y  // Should be about 62.5 pixels
-            
-            // Scale clef to span from E5 to below the staff (about 2.2 times the G4-E5 distance)
-            return distanceG4ToE5 * 2.2
-        case .bass: return staffHeight * 0.6
-        case .alto: return staffHeight * 0.5
-        case .tenor: return staffHeight * 0.5
-        }
-    }
-    
-    private var clefVerticalOffset: CGFloat {
-        switch sheetMusic.musicContext.clef {
-        case .treble: 
-            // Treble clef: use unified positioning system with G4 as the note name
-            // The curl should be centered on G4 line
-            let g4YPosition = StaffPositionMapper.getYFromNoteAndKey("G4", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
-            let staffCenter = staffHeight / 2
-            
-            // Adjust for treble clef glyph internal structure
-            // The large curl is approximately 40% down from the top of the glyph
-            // This adjustment centers the curl on the G4 line
-            let glyphCurlAdjustment = clefFontSize * 0.15
-            
-            // Return offset to center the clef curl on G4 line
-            return g4YPosition - staffCenter - glyphCurlAdjustment
-        case .bass: 
-            // Bass clef: center on F3 line (fourth line)
-            let f3YPosition = StaffPositionMapper.getYFromNoteAndKey("F3", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
-            let staffCenter = staffHeight / 2
-            return f3YPosition - staffCenter
-        case .alto: 
-            // Alto clef: center on C4 line (middle line)
-            let c4YPosition = StaffPositionMapper.getYFromNoteAndKey("C4", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
-            let staffCenter = staffHeight / 2
-            return c4YPosition - staffCenter
-        case .tenor: 
-            // Tenor clef: center on A3 line (fourth line)
-            let a3YPosition = StaffPositionMapper.getYFromNoteAndKey("A3", keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
-            let staffCenter = staffHeight / 2
-            return a3YPosition - staffCenter
-        }
-    }
-    
-    private var clefSymbol: String {
-        switch sheetMusic.musicContext.clef {
-        case .treble: return "𝄞"
-        case .bass: return "𝄢"
-        case .alto: return "𝄡"
-        case .tenor: return "𝄡"  // Tenor clef uses same symbol as alto, just positioned differently
-        }
-    }
+
     
     private var keySignatureView: some View {
         ZStack {
-            // Key signature accidentals using positioning system
+            // Key signature accidentals using image assets
             let accidentals = KeySignatureAccidental.createDMinorAccidentals(for: sheetMusic.musicContext.clef)
             ForEach(Array(accidentals.enumerated()), id: \.offset) { index, accidental in
-                Text(accidental.symbol)
-                    .font(.system(size: 20))
-                    .foregroundColor(.black)
-                    .position(x: 15, y: StaffPositionMapper.getYFromNoteAndKey(accidental.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight))
+                let yPos = StaffPositionMapper.getYFromNoteAndKey(accidental.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+                let position = CGPoint(x: 15, y: yPos)
+                
+                MusicalSymbolImageManager.accidentalImageView(
+                    for: accidental.symbol,
+                    targetHeight: 20,
+                    at: position
+                )
             }
         }
         .frame(width: 30, height: staffHeight)
