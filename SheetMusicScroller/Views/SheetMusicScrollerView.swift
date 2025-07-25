@@ -242,11 +242,28 @@ struct SheetMusicScrollerView: View {
     }
     
     /// Get the currently active note for squiggle reference
-    /// This is the note that should be expected at the current point in the score
+    /// This is the note that has most recently passed from the right of the squiggle tip to the left
+    /// Based on spatial position rather than just score time
     private var currentlyActiveNote: TimedNote? {
-        // Get the most recent note that has started by the current score time
-        let notesUpToNow = sheetMusic.notesUpTo(time: scoreTime)
-        return notesUpToNow.last  // Most recent note that should be active
+        let gutterWidth: CGFloat = 80
+        
+        // Find the note that has most recently passed the squiggle tip
+        var mostRecentPassedNote: TimedNote?
+        
+        for (index, timedNote) in sheetMusic.timedNotes.enumerated() {
+            let noteXPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
+            let hasPassedSquiggle = noteXPosition <= squiggleX
+            
+            if hasPassedSquiggle {
+                // This note has passed the squiggle, keep track of it as a candidate
+                mostRecentPassedNote = timedNote
+            } else {
+                // This note hasn't passed yet, so we've found our answer
+                break
+            }
+        }
+        
+        return mostRecentPassedNote
     }
     
     /// Determines if two note names share the same staff position (enharmonic equivalence)
