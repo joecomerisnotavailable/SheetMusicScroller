@@ -390,20 +390,10 @@ struct SheetMusicScrollerView: View {
         // Calculate yNext using getYFromNoteAndKey
         let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
         
-        // For Case 1, freqTop is already set to freqActiveNote
-        // For Case 2, we need to find the actual freqTop (last note with same staff position)
-        let finalFreqTop: Double
-        if isCase1 {
-            finalFreqTop = freqTop  // Already set to active note frequency
-        } else {
-            finalFreqTop = findFreqTopForInterpolation(
-                nearestNoteName: anchorNoteName,
-                direction: direction,
-                keySignature: keySignature,
-                clef: clef,
-                baseHz: baseHz
-            )
-        }
+        // In both cases, freqTop is already correctly set:
+        // Case 1: freqTop = active note frequency
+        // Case 2: freqTop = detected note frequency (already set correctly above)
+        let finalFreqTop = freqTop
         
         // Calculate freqNext (frequency of noteNext)
         let freqNext = StaffPositionMapper.noteNameToFrequency(noteNext, a4Reference: baseHz)
@@ -443,33 +433,6 @@ struct SheetMusicScrollerView: View {
         return clampedY
     }
 
-    
-    /// Find the frequency of the last note in the given direction whose staff position 
-    /// does not differ from the nearest note's staff position
-    private func findFreqTopForInterpolation(nearestNoteName: String, direction: Int, keySignature: String, clef: Clef, baseHz: Double) -> Double {
-        let context = MusicContext(keySignature: keySignature, clef: clef)
-        let referenceMidi = StaffPositionMapper.noteNameToMidiNote(nearestNoteName)
-        let referencePosition = StaffPositionMapper.noteNameToStaffPosition(nearestNoteName, context: context)
-        
-        var currentMidi = referenceMidi
-        var lastMatchingNoteName = nearestNoteName
-        
-        // Search in the direction until we find a note with different staff position
-        for _ in 0..<12 { // Don't go more than an octave
-            currentMidi += direction
-            let currentNoteName = StaffPositionMapper.midiNoteToNoteName(currentMidi)
-            let currentPosition = StaffPositionMapper.noteNameToStaffPosition(currentNoteName, context: context)
-            
-            if abs(currentPosition - referencePosition) > 0.1 {
-                // Found a note with different staff position, return the last matching note's frequency
-                break
-            }
-            
-            lastMatchingNoteName = currentNoteName
-        }
-        
-        return StaffPositionMapper.noteNameToFrequency(lastMatchingNoteName, a4Reference: baseHz)
-    }
     
     /// Get the current squiggle tip color based on pitch distance from currently active note
     /// This now always references the active note frequency as the target, regardless of case
@@ -570,15 +533,27 @@ struct SheetMusicScrollerView: View {
     /// This captures the squiggle color at the moment a note becomes inactive
     private func updateNoteColorsForPassedNotes() {
         let gutterWidth: CGFloat = 80
+        let previousActiveNote = currentlyActiveNote
         
         for (index, timedNote) in sheetMusic.timedNotes.enumerated() {
             let noteXPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
             let hasPassedSquiggle = noteXPosition <= squiggleX
             
             // If note has passed squiggle but we don't have a color stored yet, store current squiggle color
+            // Only store non-gray colors to avoid storing "no active note" state
             if hasPassedSquiggle && noteColors[timedNote.id] == nil {
-                noteColors[timedNote.id] = squiggleColor
-                print("🎨 Note \(timedNote.note.noteName) passed squiggle, storing color: \(squiggleColor)")
+                // Only store the color if there was an active note when this note passed
+                // If squiggle color is gray (no active note), use a default "neutral" color instead
+                let colorToStore: Color
+                if squiggleColor == .gray {
+                    // Use a neutral color when no active note was available during passage
+                    colorToStore = .black
+                } else {
+                    colorToStore = squiggleColor
+                }
+                
+                noteColors[timedNote.id] = colorToStore
+                print("🎨 Note \(timedNote.note.noteName) passed squiggle, storing color: \(colorToStore)")
             }
         }
     }
