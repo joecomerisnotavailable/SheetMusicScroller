@@ -83,6 +83,7 @@ struct SheetMusicScrollerView: View {
     @State private var scoreTime: Double = 0  // Current time position in the score for tracking active notes
     @State private var noteColors: [UUID: Color] = [:]  // Track persistent color for each note after it passes
     @State private var notePerformanceData: [UUID: NotePerformanceTracker] = [:]  // Track performance over time for each note
+    @State private var isInterpolationEnabled: Bool = true  // Toggle for squiggle Y position interpolation
     
     private let noteSpacing: CGFloat = 60
     private let scrollSpeed: CGFloat = 30 // pixels per second
@@ -216,6 +217,15 @@ struct SheetMusicScrollerView: View {
             .buttonStyle(PlainButtonStyle())
             
             Spacer()
+            
+            // Interpolation toggle
+            VStack(spacing: 4) {
+                Toggle("Interpolation", isOn: $isInterpolationEnabled)
+                    .toggleStyle(SwitchToggleStyle())
+                Text(isInterpolationEnabled ? "Smooth" : "Exact")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
     
@@ -433,6 +443,12 @@ struct SheetMusicScrollerView: View {
         
         // Step 3: Use getYFromNoteAndKey to get initial Y coordinate (yAnchor)
         let yAnchor = StaffPositionMapper.getYFromNoteAndKey(anchorNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        
+        // Check if interpolation is disabled - if so, return exact staff position
+        if !isInterpolationEnabled {
+            print("🎯 SquigglePosition: Interpolation disabled, returning exact position for \(anchorNoteName) at Y=\(String(format: "%.1f", yAnchor))")
+            return max(0, min(totalFrameHeight, yAnchor))
+        }
         
         // Step 4: Apply frequency interpolation using the original algorithm with appropriate freqTop
         let freqDelta = freq - freqTop
