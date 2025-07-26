@@ -10,13 +10,15 @@ struct ScoreView: View {
     let gutterWidth: CGFloat = 80  // Width of the fixed gutter area
     let squiggleX: CGFloat        // X position of the squiggle for pass/fail detection
     let squiggleColor: Color      // Current squiggle tip color
+    let noteColors: [UUID: Color] // Persistent colors for notes that have passed
     
-    init(sheetMusic: SheetMusic, activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0, squiggleX: CGFloat = 80, squiggleColor: Color = .red) {
+    init(sheetMusic: SheetMusic, activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0, squiggleX: CGFloat = 80, squiggleColor: Color = .red, noteColors: [UUID: Color] = [:]) {
         self.sheetMusic = sheetMusic
         self.activeNotes = activeNotes
         self.scrollOffset = scrollOffset
         self.squiggleX = squiggleX
         self.squiggleColor = squiggleColor
+        self.noteColors = noteColors
     }
     
     var body: some View {
@@ -104,12 +106,23 @@ struct ScoreView: View {
             let yPosition = StaffPositionMapper.getYFromNoteAndKey(timedNote.note.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
             let hasPassedSquiggle = xPosition <= squiggleX
             
+            // Determine note color: use persistent color if available, current squiggle color if just passed, or default
+            let noteDisplayColor: Color? = {
+                if let persistentColor = noteColors[timedNote.id] {
+                    return persistentColor  // Use stored color for notes that have passed
+                } else if hasPassedSquiggle {
+                    return squiggleColor    // Use current squiggle color for newly passed notes
+                } else {
+                    return nil  // No special color for notes that haven't reached squiggle
+                }
+            }()
+            
             Group {
                 NoteView(
                     timedNote: timedNote,
                     musicContext: sheetMusic.musicContext,
                     isActive: activeNotes.contains(timedNote.id),
-                    squiggleColor: hasPassedSquiggle ? squiggleColor : nil,
+                    squiggleColor: noteDisplayColor,
                     scale: 1.0
                 )
                 .position(x: xPosition, y: yPosition)
@@ -161,7 +174,8 @@ struct ScoreView: View {
         activeNotes: Set([sampleNotes[0].id, sampleNotes[2].id]),
         scrollOffset: 0,
         squiggleX: 80,
-        squiggleColor: .red
+        squiggleColor: .red,
+        noteColors: [:]
     )
     .padding()
     .background(Color.white)
