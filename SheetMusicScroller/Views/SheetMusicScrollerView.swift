@@ -384,6 +384,7 @@ struct SheetMusicScrollerView: View {
     /// - Unified single function instead of separate case functions
     private var currentSquiggleYPosition: CGFloat {
         let staffHeight: CGFloat = 120
+        let totalFrameHeight: CGFloat = 220  // Match the frame height used in the UI
         
         // Step 1: Read detected frequency from microphone
         guard pitchDetector.currentFrequency > 0 && pitchDetector.currentAmplitude > 0.01 else {
@@ -499,7 +500,8 @@ struct SheetMusicScrollerView: View {
         print("🎯 SquigglePosition: Interpolation ratio: \(String(format: "%.3f", interpolationRatio)), final Y: \(String(format: "%.1f", ySquiggle))")
         
         // Safety check: ensure Y position is within reasonable bounds
-        let clampedY = max(0, min(staffHeight, ySquiggle))
+        // Use totalFrameHeight instead of staffHeight to allow for notes below staff
+        let clampedY = max(0, min(totalFrameHeight, ySquiggle))
         if clampedY != ySquiggle {
             print("🎯 SquigglePosition: Y position clamped from \(String(format: "%.1f", ySquiggle)) to \(String(format: "%.1f", clampedY))")
         }
