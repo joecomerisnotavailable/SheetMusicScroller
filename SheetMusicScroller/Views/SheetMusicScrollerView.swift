@@ -1,5 +1,78 @@
 import SwiftUI
 
+/// Tracks performance data for a note over the time it was active
+struct NotePerformanceTracker {
+    var accuracySamples: [Double] = []
+    var sampleTimes: [Double] = []
+    var startTime: Double?
+    var endTime: Double?
+    
+    /// Add a performance sample
+    mutating func addSample(accuracy: Double, time: Double) {
+        if startTime == nil {
+            startTime = time
+        }
+        accuracySamples.append(accuracy)
+        sampleTimes.append(time)
+    }
+    
+    /// Mark the note as finished and calculate final performance
+    mutating func finish(at time: Double) {
+        endTime = time
+    }
+    
+    /// Calculate time-averaged color based on performance
+    var averagePerformanceColor: Color {
+        guard !accuracySamples.isEmpty else { return .black }
+        
+        // Calculate weighted average based on time intervals
+        var totalWeight = 0.0
+        var weightedSum = 0.0
+        
+        for i in 0..<accuracySamples.count {
+            let weight = i < sampleTimes.count - 1 ? 
+                (sampleTimes[i + 1] - sampleTimes[i]) : 0.1 // Default interval for last sample
+            totalWeight += weight
+            weightedSum += accuracySamples[i] * weight
+        }
+        
+        let averageAccuracy = totalWeight > 0 ? weightedSum / totalWeight : 0.0
+        
+        // Convert average accuracy to color
+        return performanceAccuracyToColor(averageAccuracy)
+    }
+    
+    /// Convert performance accuracy to color (similar to squiggle color logic)
+    private func performanceAccuracyToColor(_ accuracy: Double) -> Color {
+        // accuracy is in semitones: 0 = perfect, positive = sharp, negative = flat
+        
+        // If very close to perfect (within 0.1 semitones), show green
+        if abs(accuracy) < 0.1 {
+            return .green
+        }
+        
+        // Color interpolation based on distance from perfect
+        let maxSemitones: Double = 1.0  // Full color at 1 semitone distance
+        let normalizedDistance = min(abs(accuracy) / maxSemitones, 1.0)
+        
+        if accuracy < 0 {
+            // Below target frequency -> purple
+            let purpleIntensity = normalizedDistance
+            let greenComponent = max(0, 1.0 - purpleIntensity)
+            return Color(red: purpleIntensity * 0.5 + greenComponent * 0.0,
+                        green: greenComponent,
+                        blue: purpleIntensity * 0.8 + greenComponent * 0.5)
+        } else {
+            // Above target frequency -> red  
+            let redIntensity = normalizedDistance
+            let greenComponent = max(0, 1.0 - redIntensity)
+            return Color(red: redIntensity + greenComponent * 0.0,
+                        green: greenComponent,
+                        blue: greenComponent * 0.0)
+        }
+    }
+}
+
 /// Main view that orchestrates the scrolling sheet music display with marker squiggle
 struct SheetMusicScrollerView: View {
     let sheetMusic: SheetMusic
@@ -9,6 +82,7 @@ struct SheetMusicScrollerView: View {
     @StateObject private var pitchDetector = PitchDetector()
     @State private var scoreTime: Double = 0  // Current time position in the score for tracking active notes
     @State private var noteColors: [UUID: Color] = [:]  // Track persistent color for each note after it passes
+    @State private var notePerformanceData: [UUID: NotePerformanceTracker] = [:]  // Track performance over time for each note
     
     private let noteSpacing: CGFloat = 60
     private let scrollSpeed: CGFloat = 30 // pixels per second
@@ -519,6 +593,9 @@ struct SheetMusicScrollerView: View {
                 scoreTime = 0  // Loop back to beginning
             }
             
+            // Track performance data for the currently active note
+            trackCurrentNotePerformance()
+            
             // Update persistent note colors for notes that have just passed the squiggle
             updateNoteColorsForPassedNotes()
         }
@@ -529,31 +606,58 @@ struct SheetMusicScrollerView: View {
         scrollTimer = nil
     }
     
+    /// Track performance data for the currently active note
+    private func trackCurrentNotePerformance() {
+        guard let activeNote = currentlyActiveNote,
+              pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 else {
+            return
+        }
+        
+        // Calculate performance accuracy (in semitones)
+        let currentFreq = pitchDetector.currentFrequency
+        let baseHz = sheetMusic.musicContext.a4Reference
+        let targetNoteName = activeNote.note.noteName
+        let targetFreq = StaffPositionMapper.noteNameToFrequency(targetNoteName, a4Reference: baseHz)
+        
+        // Calculate semitone difference (12 semitones = octave, frequency doubles)
+        let semitoneDiff = 12.0 * log2(currentFreq / targetFreq)
+        
+        // Initialize performance tracker if needed
+        if notePerformanceData[activeNote.id] == nil {
+            notePerformanceData[activeNote.id] = NotePerformanceTracker()
+        }
+        
+        // Add performance sample
+        notePerformanceData[activeNote.id]?.addSample(accuracy: semitoneDiff, time: scoreTime)
+    }
+    
     /// Update persistent colors for notes that have just passed the squiggle
-    /// This captures the squiggle color at the moment a note becomes inactive
+    /// This captures the time-averaged performance color when a note becomes inactive
     private func updateNoteColorsForPassedNotes() {
         let gutterWidth: CGFloat = 80
-        let previousActiveNote = currentlyActiveNote
         
         for (index, timedNote) in sheetMusic.timedNotes.enumerated() {
             let noteXPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
             let hasPassedSquiggle = noteXPosition <= squiggleX
             
-            // If note has passed squiggle but we don't have a color stored yet, store current squiggle color
-            // Only store non-gray colors to avoid storing "no active note" state
+            // If note has passed squiggle but we don't have a color stored yet, calculate final color
             if hasPassedSquiggle && noteColors[timedNote.id] == nil {
-                // Only store the color if there was an active note when this note passed
-                // If squiggle color is gray (no active note), use a default "neutral" color instead
+                // Finalize performance tracking for this note
+                notePerformanceData[timedNote.id]?.finish(at: scoreTime)
+                
+                // Use time-averaged performance color if available, otherwise use fallback
                 let colorToStore: Color
-                if squiggleColor == .gray {
-                    // Use a neutral color when no active note was available during passage
-                    colorToStore = .black
+                if let performanceTracker = notePerformanceData[timedNote.id],
+                   !performanceTracker.accuracySamples.isEmpty {
+                    colorToStore = performanceTracker.averagePerformanceColor
+                    print("🎨 Note \(timedNote.note.noteName) passed squiggle, using time-averaged color based on \(performanceTracker.accuracySamples.count) samples")
                 } else {
-                    colorToStore = squiggleColor
+                    // Fallback: use current squiggle color if no performance data available
+                    colorToStore = squiggleColor == .gray ? .black : squiggleColor
+                    print("🎨 Note \(timedNote.note.noteName) passed squiggle, using fallback color (no performance data)")
                 }
                 
                 noteColors[timedNote.id] = colorToStore
-                print("🎨 Note \(timedNote.note.noteName) passed squiggle, storing color: \(colorToStore)")
             }
         }
     }
