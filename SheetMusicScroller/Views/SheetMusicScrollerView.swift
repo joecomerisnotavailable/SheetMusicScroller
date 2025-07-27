@@ -86,10 +86,8 @@ struct SheetMusicScrollerView: View {
     
     /// Configuration for squiggle drawing appearance
     @State private var squiggleDrawingConfig = SquiggleDrawingConfig(
-        useSmoothCurves: true,
-        lineWidth: 2.5,
-        tipSize: 6.0,
-        smoothingFactor: 0.6,
+        lineWidth: 3.5,
+        tipSize: 7.0,
         useRoundLineCaps: true
     )
     
@@ -432,21 +430,18 @@ struct SheetMusicScrollerView: View {
                         .fontWeight(.medium)
                     
                     HStack(spacing: 16) {
-                        Toggle("Smooth Curves", isOn: $squiggleDrawingConfig.useSmoothCurves)
-                            .font(.caption)
-                        
                         Toggle("Round Caps", isOn: $squiggleDrawingConfig.useRoundLineCaps)
                             .font(.caption)
+                        
+                        Spacer()
                     }
                     
-                    // Quick style presets
+                    // Quick style presets for different line widths
                     HStack(spacing: 8) {
-                        Button("Crayon") {
+                        Button("Thin") {
                             squiggleDrawingConfig = SquiggleDrawingConfig(
-                                useSmoothCurves: true,
-                                lineWidth: 4.0,
-                                tipSize: 8.0,
-                                smoothingFactor: 0.8,
+                                lineWidth: 2.0,
+                                tipSize: 5.0,
                                 useRoundLineCaps: true
                             )
                         }
@@ -454,25 +449,21 @@ struct SheetMusicScrollerView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
                         
-                        Button("Pen") {
+                        Button("Default") {
                             squiggleDrawingConfig = SquiggleDrawingConfig(
-                                useSmoothCurves: true,
-                                lineWidth: 1.5,
-                                tipSize: 4.0,
-                                smoothingFactor: 0.4,
-                                useRoundLineCaps: false
+                                lineWidth: 3.5,
+                                tipSize: 7.0,
+                                useRoundLineCaps: true
                             )
                         }
                         .font(.caption2)
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
                         
-                        Button("Linear") {
+                        Button("Thick") {
                             squiggleDrawingConfig = SquiggleDrawingConfig(
-                                useSmoothCurves: false,
-                                lineWidth: 2.0,
-                                tipSize: 6.0,
-                                smoothingFactor: 0.0,
+                                lineWidth: 5.0,
+                                tipSize: 9.0,
                                 useRoundLineCaps: true
                             )
                         }
