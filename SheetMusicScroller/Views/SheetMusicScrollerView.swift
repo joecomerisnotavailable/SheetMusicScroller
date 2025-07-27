@@ -84,10 +84,10 @@ struct SheetMusicScrollerView: View {
     @State private var noteColors: [UUID: Color] = [:]  // Track persistent color for each note after it passes
     @State private var notePerformanceData: [UUID: NotePerformanceTracker] = [:]  // Track performance over time for each note
     
-    /// Configuration for squiggle drawing appearance
+    /// Configuration for squiggle drawing appearance - smaller, more precise crayon style
     @State private var squiggleDrawingConfig = SquiggleDrawingConfig(
-        lineWidth: 3.5,
-        tipSize: 7.0,
+        lineWidth: 2.5,
+        tipSize: 4.5,
         useRoundLineCaps: true
     )
     
@@ -353,72 +353,47 @@ struct SheetMusicScrollerView: View {
                     }
                 }
                 
-                // Median filter window size
+                // YIN algorithm toggle
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("Smoothing Window: \(pitchDetector.config.medianFilterWindowSize)")
+                        Toggle("Use YIN Algorithm", isOn: Binding(
+                            get: { pitchDetector.config.useYIN },
+                            set: { newValue in
+                                pitchDetector.config.useYIN = newValue
+                                // Restart pitch detection to apply new algorithm
+                                if pitchDetector.isListening {
+                                    pitchDetector.stopListening()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        pitchDetector.startListening()
+                                    }
+                                }
+                            }
+                        ))
                             .font(.caption)
+                        
                         Spacer()
-                        Text("🔧 Reduces jitter")
+                        
+                        Text("🎯 Higher fidelity pitch detection")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
                     
-                    Slider(
-                        value: Binding(
-                            get: { Double(pitchDetector.config.medianFilterWindowSize) },
-                            set: { pitchDetector.updateMedianFilterWindowSize(Int($0)) }
-                        ),
-                        in: 1...15,
-                        step: 1
-                    ) {
-                        Text("Smoothing")
+                    if pitchDetector.config.useYIN {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("YIN Threshold: \(pitchDetector.config.yinThreshold, specifier: "%.2f")")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            
+                            Slider(
+                                value: $pitchDetector.config.yinThreshold,
+                                in: 0.05...0.5,
+                                step: 0.05
+                            ) {
+                                Text("YIN Threshold")
+                            }
+                        }
+                        .padding(.top, 4)
                     }
-                }
-                
-                // Frequency smoothing factor
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Frequency Smoothing: \(pitchDetector.config.frequencySmoothingFactor, specifier: "%.2f")")
-                            .font(.caption)
-                        Spacer()
-                        Text("📊 Exponential smoothing")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Slider(
-                        value: $pitchDetector.config.frequencySmoothingFactor,
-                        in: 0.0...0.95,
-                        step: 0.05
-                    ) {
-                        Text("Smoothing Factor")
-                    }
-                }
-                
-                // Toggle controls
-                HStack(spacing: 20) {
-                    Toggle("Median Filter", isOn: $pitchDetector.config.enableMedianFiltering)
-                        .font(.caption)
-                    
-                    Toggle("Freq Smoothing", isOn: $pitchDetector.config.enableFrequencySmoothing)
-                        .font(.caption)
-                }
-                
-                // Clear filtering history button
-                HStack {
-                    Button("Clear Filter History") {
-                        pitchDetector.clearFilteringHistory()
-                    }
-                    .font(.caption)
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    
-                    Spacer()
-                    
-                    Text("Reset smoothing buffers")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
                 }
                 
                 Divider()
@@ -438,10 +413,10 @@ struct SheetMusicScrollerView: View {
                     
                     // Quick style presets for different line widths
                     HStack(spacing: 8) {
-                        Button("Thin") {
+                        Button("Fine") {
                             squiggleDrawingConfig = SquiggleDrawingConfig(
-                                lineWidth: 2.0,
-                                tipSize: 5.0,
+                                lineWidth: 1.5,
+                                tipSize: 3.5,
                                 useRoundLineCaps: true
                             )
                         }
@@ -451,8 +426,8 @@ struct SheetMusicScrollerView: View {
                         
                         Button("Default") {
                             squiggleDrawingConfig = SquiggleDrawingConfig(
-                                lineWidth: 3.5,
-                                tipSize: 7.0,
+                                lineWidth: 2.5,
+                                tipSize: 4.5,
                                 useRoundLineCaps: true
                             )
                         }
@@ -460,10 +435,10 @@ struct SheetMusicScrollerView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
                         
-                        Button("Thick") {
+                        Button("Bold") {
                             squiggleDrawingConfig = SquiggleDrawingConfig(
-                                lineWidth: 5.0,
-                                tipSize: 9.0,
+                                lineWidth: 3.5,
+                                tipSize: 6.0,
                                 useRoundLineCaps: true
                             )
                         }
@@ -474,6 +449,11 @@ struct SheetMusicScrollerView: View {
                         Spacer()
                     }
                 }
+                
+                Text("Smoothing disabled for raw, responsive pitch detection")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .italic()
             }
         }
         .padding()

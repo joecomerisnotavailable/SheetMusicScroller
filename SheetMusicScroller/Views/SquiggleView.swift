@@ -2,10 +2,10 @@ import SwiftUI
 
 /// Configuration for squiggle drawing parameters
 struct SquiggleDrawingConfig {
-    /// Line width for the squiggle path (thicker for crayon-like effect)
-    var lineWidth: CGFloat = 3.5
-    /// Tip size (diameter)
-    var tipSize: CGFloat = 7.0
+    /// Line width for the squiggle path (smaller, more precise for gritty crayon effect)
+    var lineWidth: CGFloat = 2.5
+    /// Tip size (diameter) - smaller for more precise crayon appearance
+    var tipSize: CGFloat = 4.5
     /// Whether to use round line caps for crayon-like effect
     var useRoundLineCaps: Bool = true
 }
@@ -36,18 +36,15 @@ struct SquiggleView: View {
     
     var body: some View {
         ZStack {
-            // Draw the historical trail with crayon-like appearance
+            // Draw the historical trail with crayon-like appearance and gristly texture
             if historyPoints.count > 1 {
                 Path { path in
-                    // Simple linear interpolation for clean, direct connections
-                    path.move(to: historyPoints[0])
-                    for point in historyPoints.dropFirst() {
-                        path.addLine(to: point)
-                    }
+                    // Create gristly, textured lines by adding slight variations
+                    createGristlyPath(path: &path, points: historyPoints)
                 }
                 .stroke(
                     LinearGradient(
-                        gradient: Gradient(colors: [tipColor.opacity(0.3), tipColor.opacity(0.6), tipColor]),
+                        gradient: Gradient(colors: [tipColor.opacity(0.75), tipColor.opacity(0.9), tipColor]),
                         startPoint: .leading,
                         endPoint: .trailing
                     ),
@@ -117,6 +114,55 @@ struct SquiggleView: View {
         lastScrollOffset = newScrollOffset
     }
     
+    /// Create a gristly, textured path by adding slight random variations to line segments
+    /// This gives the squiggle a more organic, crayon-like texture
+    private func createGristlyPath(path: inout Path, points: [CGPoint]) {
+        guard points.count > 1 else { return }
+        
+        path.move(to: points[0])
+        
+        for i in 1..<points.count {
+            let currentPoint = points[i]
+            let previousPoint = points[i-1]
+            
+            // Add slight perpendicular variations to create texture
+            let dx = currentPoint.x - previousPoint.x
+            let dy = currentPoint.y - previousPoint.y
+            let length = sqrt(dx*dx + dy*dy)
+            
+            // Only add texture if segment is long enough
+            if length > 3.0 {
+                // Create perpendicular vector for texture variation
+                let perpX = -dy / length
+                let perpY = dx / length
+                
+                // Add small random variations (deterministic based on position for consistency)
+                let seed = Int(previousPoint.x + previousPoint.y * 17) % 1000
+                let variation1 = sin(Double(seed) * 0.1) * 0.8
+                let variation2 = cos(Double(seed) * 0.13) * 0.6
+                
+                // Create intermediate points with texture
+                let midPoint = CGPoint(
+                    x: (previousPoint.x + currentPoint.x) * 0.5 + perpX * variation1,
+                    y: (previousPoint.y + currentPoint.y) * 0.5 + perpY * variation1
+                )
+                
+                let quarterPoint = CGPoint(
+                    x: previousPoint.x * 0.75 + currentPoint.x * 0.25 + perpX * variation2,
+                    y: previousPoint.y * 0.75 + currentPoint.y * 0.25 + perpY * variation2
+                )
+                
+                // Draw textured line through intermediate points
+                path.addLine(to: quarterPoint)
+                path.addLine(to: midPoint)
+                path.addLine(to: currentPoint)
+            } else {
+                // For short segments, just draw straight line
+                path.addLine(to: currentPoint)
+            }
+        }
+    }
+    
     /// Get the current tip color for note coloration
     var currentTipColor: Color {
         return tipColor
@@ -136,7 +182,7 @@ struct SquiggleView: View {
         // Thin line variant
         HStack(spacing: 30) {
             SquiggleView(height: 150, currentYPosition: 75, scrollOffset: 0, squiggleX: 80, tipColor: .blue,
-                        drawingConfig: SquiggleDrawingConfig(lineWidth: 2.0, tipSize: 5.0, useRoundLineCaps: true))
+                        drawingConfig: SquiggleDrawingConfig(lineWidth: 1.5, tipSize: 3.5, useRoundLineCaps: true))
             Text("Thin Line")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -145,7 +191,7 @@ struct SquiggleView: View {
         // Thick crayon style
         HStack(spacing: 30) {
             SquiggleView(height: 150, currentYPosition: 75, scrollOffset: 0, squiggleX: 80, tipColor: .green,
-                        drawingConfig: SquiggleDrawingConfig(lineWidth: 5.0, tipSize: 9.0, useRoundLineCaps: true))
+                        drawingConfig: SquiggleDrawingConfig(lineWidth: 3.5, tipSize: 6.0, useRoundLineCaps: true))
             Text("Thick Crayon")
                 .font(.caption)
                 .foregroundColor(.secondary)

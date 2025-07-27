@@ -23,18 +23,22 @@ import AVFoundation
 
 /// Configuration for pitch detection parameters
 struct PitchDetectionConfig {
-    /// Window size for median filtering (number of samples to keep for smoothing)
-    var medianFilterWindowSize: Int = 5
+    /// Window size for median filtering (number of samples to keep for smoothing) - DISABLED by default
+    var medianFilterWindowSize: Int = 1  // Set to 1 to effectively disable
     /// Frame size for analysis window (AudioKit buffer size)
     var analysisFrameSize: Int = 1024
     /// Minimum amplitude threshold for valid pitch detection
     var minimumAmplitudeThreshold: Double = 0.05
-    /// Whether to enable median filtering for pitch stability
-    var enableMedianFiltering: Bool = true
-    /// Whether to enable frequency smoothing
-    var enableFrequencySmoothing: Bool = true
-    /// Smoothing factor for frequency values (0.0 = no smoothing, 1.0 = maximum smoothing)
-    var frequencySmoothingFactor: Double = 0.7
+    /// Whether to enable median filtering for pitch stability - DISABLED for raw response
+    var enableMedianFiltering: Bool = false
+    /// Whether to enable frequency smoothing - DISABLED for raw response
+    var enableFrequencySmoothing: Bool = false
+    /// Smoothing factor for frequency values (0.0 = no smoothing, 1.0 = maximum smoothing) - DISABLED
+    var frequencySmoothingFactor: Double = 0.0
+    /// Whether to use YIN algorithm instead of AudioKit's default PitchTap
+    var useYIN: Bool = true
+    /// YIN threshold for pitch detection quality (lower = more sensitive, higher = more selective)
+    var yinThreshold: Double = 0.1
 }
 
 // Define protocol for when SwiftUI is not available
@@ -88,6 +92,7 @@ final class PitchDetector: ObservableObject {
     private var engine: AudioEngine?
     private var mic: AudioEngine.InputNode?
     private var tracker: PitchTap?
+    private var audioTapInstalled: Bool = false
     #endif
 
     // Timer for permission check
@@ -109,6 +114,97 @@ final class PitchDetector: ObservableObject {
         #if canImport(AudioKit) && canImport(AVFoundation)
         stopAudioEngine()
         #endif
+    }
+
+    // MARK: - YIN Pitch Detection Algorithm
+    
+    /// YIN pitch detection algorithm implementation
+    /// Based on "YIN, a fundamental frequency estimator for speech and music" by de Cheveigné & Kawahara (2002)
+    /// This provides higher fidelity pitch detection compared to basic autocorrelation methods
+    private func yinPitchDetection(audioBuffer: [Float], sampleRate: Double) -> (frequency: Double, confidence: Double) {
+        let bufferSize = audioBuffer.count
+        let halfBufferSize = bufferSize / 2
+        
+        // Step 1: Calculate difference function
+        var differenceFunction = Array(repeating: 0.0, count: halfBufferSize)
+        for tau in 0..<halfBufferSize {
+            var sum = 0.0
+            for j in 0..<halfBufferSize {
+                let diff = Double(audioBuffer[j]) - Double(audioBuffer[j + tau])
+                sum += diff * diff
+            }
+            differenceFunction[tau] = sum
+        }
+        
+        // Step 2: Calculate cumulative mean normalized difference function
+        var cumulativeMean = Array(repeating: 0.0, count: halfBufferSize)
+        cumulativeMean[0] = 1.0
+        var runningSum = 0.0
+        
+        for tau in 1..<halfBufferSize {
+            runningSum += differenceFunction[tau]
+            cumulativeMean[tau] = differenceFunction[tau] / (runningSum / Double(tau))
+        }
+        
+        // Step 3: Absolute threshold
+        let threshold = config.yinThreshold
+        var pitchPeriod = 0
+        
+        for tau in 2..<halfBufferSize {
+            if cumulativeMean[tau] < threshold {
+                // Found a candidate, now look for local minimum
+                var currentTau = tau
+                while currentTau + 1 < halfBufferSize && cumulativeMean[currentTau + 1] < cumulativeMean[currentTau] {
+                    currentTau += 1
+                }
+                pitchPeriod = currentTau
+                break
+            }
+        }
+        
+        // If no pitch found with threshold, find global minimum
+        if pitchPeriod == 0 {
+            var minValue = cumulativeMean[2]
+            pitchPeriod = 2
+            for tau in 3..<halfBufferSize {
+                if cumulativeMean[tau] < minValue {
+                    minValue = cumulativeMean[tau]
+                    pitchPeriod = tau
+                }
+            }
+        }
+        
+        // Step 4: Parabolic interpolation for sub-sample precision
+        let betterPeriod: Double
+        if pitchPeriod > 0 && pitchPeriod < halfBufferSize - 1 {
+            let s0 = cumulativeMean[pitchPeriod - 1]
+            let s1 = cumulativeMean[pitchPeriod]
+            let s2 = cumulativeMean[pitchPeriod + 1]
+            
+            let a = (s0 - 2 * s1 + s2) / 2
+            let b = (s2 - s0) / 2
+            
+            if abs(a) > 1e-6 {
+                let betterTau = -b / (2 * a)
+                betterPeriod = Double(pitchPeriod) + betterTau
+            } else {
+                betterPeriod = Double(pitchPeriod)
+            }
+        } else {
+            betterPeriod = Double(pitchPeriod)
+        }
+        
+        // Calculate frequency and confidence
+        let frequency = betterPeriod > 0 ? sampleRate / betterPeriod : 0.0
+        let confidence = pitchPeriod > 0 && pitchPeriod < halfBufferSize ? 1.0 - cumulativeMean[pitchPeriod] : 0.0
+        
+        return (frequency, confidence)
+    }
+    
+    /// Calculate RMS amplitude for the audio buffer
+    private func calculateRMSAmplitude(audioBuffer: [Float]) -> Double {
+        let sum = audioBuffer.reduce(0.0) { $0 + Double($1 * $1) }
+        return sqrt(sum / Double(audioBuffer.count))
     }
 
     // MARK: - Pitch Filtering and Smoothing
@@ -294,7 +390,17 @@ final class PitchDetector: ObservableObject {
             return
         }
         
-        // Set up the pitch tracker
+        if config.useYIN {
+            // Use custom audio tap with YIN algorithm
+            setupYINAudioTap(mic)
+        } else {
+            // Use AudioKit's default PitchTap
+            setupAudioKitPitchTap(mic)
+        }
+    }
+    
+    private func setupAudioKitPitchTap(_ mic: AudioEngine.InputNode) {
+        // Set up the pitch tracker using AudioKit's PitchTap
         tracker = PitchTap(mic) { (pitch: [Float], amplitude: [Float]) in
             // For debugging: print detected values occasionally (not every frame to reduce spam)
             let now = Date().timeIntervalSince1970
@@ -307,7 +413,7 @@ final class PitchDetector: ObservableObject {
                 let detectedPitch = Double(pitch.first ?? 0)
                 let detectedAmplitude = Double(amplitude.first ?? 0)
 
-                // Apply median filtering and smoothing for stability
+                // Apply minimal filtering since smoothing is disabled
                 let (filteredFrequency, filteredAmplitude) = self.applyFiltering(frequency: detectedPitch, amplitude: detectedAmplitude)
 
                 if filteredAmplitude > self.config.minimumAmplitudeThreshold {
@@ -330,6 +436,59 @@ final class PitchDetector: ObservableObject {
         isListening = true
         errorMessage = nil
         print("AudioKit PitchTap started successfully")
+        print("Audio graph completed - microphone input connected to silent output")
+    }
+    
+    private func setupYINAudioTap(_ mic: AudioEngine.InputNode) {
+        // Create a custom audio tap for YIN processing
+        // We'll use AudioKit's audio tap to get raw audio data and process it with YIN
+        let bufferSize = config.analysisFrameSize
+        let sampleRate = 44100.0  // Standard sample rate
+        
+        // Install tap on the microphone input to get raw audio data
+        mic.avAudioUnitOrNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(bufferSize), format: nil) { [weak self] (buffer, time) in
+            guard let self = self else { return }
+            
+            // Convert AVAudioPCMBuffer to Float array
+            guard let channelData = buffer.floatChannelData?[0] else { return }
+            let frameLength = Int(buffer.frameLength)
+            let audioBuffer = Array(UnsafeBufferPointer(start: channelData, count: frameLength))
+            
+            // Apply YIN pitch detection
+            let (frequency, confidence) = self.yinPitchDetection(audioBuffer: audioBuffer, sampleRate: sampleRate)
+            let amplitude = self.calculateRMSAmplitude(audioBuffer: audioBuffer)
+            
+            // For debugging: print detected values occasionally
+            let now = Date().timeIntervalSince1970
+            if Int(now) % 5 == 0 && Int(now * 10) % 10 == 0 { // Print roughly every 5 seconds
+                print("YIN detected frequency: \(String(format: "%.1f", frequency))Hz, confidence: \(String(format: "%.3f", confidence)), amplitude: \(String(format: "%.3f", amplitude))")
+            }
+            
+            DispatchQueue.main.async {
+                // Apply minimal filtering since smoothing is disabled
+                let (filteredFrequency, filteredAmplitude) = self.applyFiltering(frequency: frequency, amplitude: amplitude)
+                
+                // Only accept pitch if confidence is reasonable and amplitude is sufficient
+                if confidence > 0.2 && filteredAmplitude > self.config.minimumAmplitudeThreshold && frequency > 50 && frequency < 4000 {
+                    self.currentFrequency = filteredFrequency
+                    self.currentAmplitude = filteredAmplitude
+
+                    let (note, octave) = PitchDetector.frequencyToNoteAndOctave(filteredFrequency)
+                    self.detectedNoteName = note
+                    self.detectedOctave = octave
+                } else {
+                    self.currentFrequency = 0
+                    self.currentAmplitude = 0
+                    self.detectedNoteName = "--"
+                    self.detectedOctave = 0
+                }
+            }
+        }
+        
+        audioTapInstalled = true
+        isListening = true
+        errorMessage = nil
+        print("YIN pitch detection started successfully")
         print("Audio graph completed - microphone input connected to silent output")
     }
     
@@ -426,6 +585,13 @@ final class PitchDetector: ObservableObject {
         // Stop tracker first
         tracker?.stop()
         tracker = nil
+        
+        // Remove audio tap if installed
+        if audioTapInstalled, let mic = mic {
+            mic.avAudioUnitOrNode.removeTap(onBus: 0)
+            audioTapInstalled = false
+            print("Audio tap removed")
+        }
         
         // Stop engine
         if let engine = engine {
