@@ -117,6 +117,9 @@ struct SheetMusicScrollerView: View {
             
             // Pitch detection info
             pitchInfoView
+            
+            // Pitch detection controls
+            pitchControlsView
         }
         .padding()
         .background(platformBackgroundColor)
@@ -308,6 +311,111 @@ struct SheetMusicScrollerView: View {
         }
         .padding()
         .background(Color.primary.opacity(0.05))
+        .cornerRadius(8)
+    }
+    
+    /// Pitch detection configuration controls for runtime adjustment
+    private var pitchControlsView: some View {
+        VStack(spacing: 12) {
+            Text("Pitch Detection Settings")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            VStack(spacing: 8) {
+                // Frame size control
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Analysis Frame Size: \(pitchDetector.config.analysisFrameSize)")
+                            .font(.caption)
+                        Spacer()
+                        Text("⚙️ Affects latency vs accuracy")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Slider(
+                        value: Binding(
+                            get: { Double(pitchDetector.config.analysisFrameSize) },
+                            set: { pitchDetector.updateAnalysisFrameSize(Int($0)) }
+                        ),
+                        in: 256...4096,
+                        step: 256
+                    ) {
+                        Text("Frame Size")
+                    }
+                }
+                
+                // Median filter window size
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Smoothing Window: \(pitchDetector.config.medianFilterWindowSize)")
+                            .font(.caption)
+                        Spacer()
+                        Text("🔧 Reduces jitter")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Slider(
+                        value: Binding(
+                            get: { Double(pitchDetector.config.medianFilterWindowSize) },
+                            set: { pitchDetector.updateMedianFilterWindowSize(Int($0)) }
+                        ),
+                        in: 1...15,
+                        step: 1
+                    ) {
+                        Text("Smoothing")
+                    }
+                }
+                
+                // Frequency smoothing factor
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Frequency Smoothing: \(pitchDetector.config.frequencySmoothingFactor, specifier: "%.2f")")
+                            .font(.caption)
+                        Spacer()
+                        Text("📊 Exponential smoothing")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Slider(
+                        value: $pitchDetector.config.frequencySmoothingFactor,
+                        in: 0.0...0.95,
+                        step: 0.05
+                    ) {
+                        Text("Smoothing Factor")
+                    }
+                }
+                
+                // Toggle controls
+                HStack(spacing: 20) {
+                    Toggle("Median Filter", isOn: $pitchDetector.config.enableMedianFiltering)
+                        .font(.caption)
+                    
+                    Toggle("Freq Smoothing", isOn: $pitchDetector.config.enableFrequencySmoothing)
+                        .font(.caption)
+                }
+                
+                // Clear filtering history button
+                HStack {
+                    Button("Clear Filter History") {
+                        pitchDetector.clearFilteringHistory()
+                    }
+                    .font(.caption)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    
+                    Spacer()
+                    
+                    Text("Reset smoothing buffers")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding()
+        .background(Color.primary.opacity(0.03))
         .cornerRadius(8)
     }
     

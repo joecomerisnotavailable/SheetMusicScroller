@@ -21,6 +21,22 @@ import SoundpipeAudioKit
 import AVFoundation
 #endif
 
+/// Configuration for pitch detection parameters
+struct PitchDetectionConfig {
+    /// Window size for median filtering (number of samples to keep for smoothing)
+    var medianFilterWindowSize: Int = 5
+    /// Frame size for analysis window (AudioKit buffer size)
+    var analysisFrameSize: Int = 1024
+    /// Minimum amplitude threshold for valid pitch detection
+    var minimumAmplitudeThreshold: Double = 0.05
+    /// Whether to enable median filtering for pitch stability
+    var enableMedianFiltering: Bool = true
+    /// Whether to enable frequency smoothing
+    var enableFrequencySmoothing: Bool = true
+    /// Smoothing factor for frequency values (0.0 = no smoothing, 1.0 = maximum smoothing)
+    var frequencySmoothingFactor: Double = 0.7
+}
+
 // Define protocol for when SwiftUI is not available
 #if !canImport(SwiftUI)
 protocol ObservableObject: AnyObject {
@@ -48,16 +64,24 @@ final class PitchDetector: ObservableObject {
     @Published var detectedNoteName: String = "--"
     @Published var detectedOctave: Int = 0
     
+    /// Configuration for pitch detection parameters - exposed for runtime adjustment
+    @Published var config: PitchDetectionConfig = PitchDetectionConfig()
+    
+    // Median filtering for pitch stability
+    private var frequencyHistory: [Double] = []
+    private var amplitudeHistory: [Double] = []
+    
+    // Frequency smoothing
+    private var smoothedFrequency: Double = 0.0
+    
     // Computed property for current pitch string
     var currentPitch: String {
-        if currentFrequency > 0 && currentAmplitude > minimumAmplitudeThreshold {
+        if currentFrequency > 0 && currentAmplitude > config.minimumAmplitudeThreshold {
             return "\(detectedNoteName)\(detectedOctave)"
         } else {
             return ""
         }
     }
-
-    private let minimumAmplitudeThreshold: Double = 0.05 // Increased to reduce ambient noise sensitivity
 
     // AudioKit variables
     #if canImport(AudioKit)
@@ -85,6 +109,64 @@ final class PitchDetector: ObservableObject {
         #if canImport(AudioKit) && canImport(AVFoundation)
         stopAudioEngine()
         #endif
+    }
+
+    // MARK: - Pitch Filtering and Smoothing
+    
+    /// Apply median filtering and frequency smoothing for improved pitch stability
+    /// Reduces jitter from spurious outliers and provides configurable smoothing
+    private func applyFiltering(frequency: Double, amplitude: Double) -> (frequency: Double, amplitude: Double) {
+        var filteredFrequency = frequency
+        var filteredAmplitude = amplitude
+        
+        // Apply median filtering if enabled
+        if config.enableMedianFiltering {
+            filteredFrequency = applyMedianFilter(value: frequency, history: &frequencyHistory, windowSize: config.medianFilterWindowSize)
+            filteredAmplitude = applyMedianFilter(value: amplitude, history: &amplitudeHistory, windowSize: config.medianFilterWindowSize)
+        }
+        
+        // Apply frequency smoothing if enabled
+        if config.enableFrequencySmoothing && filteredFrequency > 0 {
+            smoothedFrequency = applyExponentialSmoothing(newValue: filteredFrequency, previousValue: smoothedFrequency, factor: config.frequencySmoothingFactor)
+            filteredFrequency = smoothedFrequency
+        }
+        
+        return (filteredFrequency, filteredAmplitude)
+    }
+    
+    /// Apply median filter to reduce outliers and jitter
+    private func applyMedianFilter(value: Double, history: inout [Double], windowSize: Int) -> Double {
+        // Add new value to history
+        history.append(value)
+        
+        // Maintain window size
+        if history.count > windowSize {
+            history.removeFirst()
+        }
+        
+        // Return median of current window
+        guard !history.isEmpty else { return value }
+        let sortedHistory = history.sorted()
+        let middleIndex = sortedHistory.count / 2
+        
+        if sortedHistory.count % 2 == 0 {
+            // Even number of elements - average of two middle values
+            return (sortedHistory[middleIndex - 1] + sortedHistory[middleIndex]) / 2.0
+        } else {
+            // Odd number of elements - middle value
+            return sortedHistory[middleIndex]
+        }
+    }
+    
+    /// Apply exponential smoothing for frequency stability
+    /// factor: 0.0 = no smoothing, 1.0 = maximum smoothing
+    private func applyExponentialSmoothing(newValue: Double, previousValue: Double, factor: Double) -> Double {
+        if previousValue == 0.0 {
+            return newValue // First value, no smoothing needed
+        }
+        
+        // Exponential smoothing formula: smoothed = factor * previous + (1 - factor) * new
+        return factor * previousValue + (1.0 - factor) * newValue
     }
 
     // MARK: - AudioKit Setup and Permission
@@ -225,11 +307,14 @@ final class PitchDetector: ObservableObject {
                 let detectedPitch = Double(pitch.first ?? 0)
                 let detectedAmplitude = Double(amplitude.first ?? 0)
 
-                if detectedAmplitude > self.minimumAmplitudeThreshold {
-                    self.currentFrequency = detectedPitch
-                    self.currentAmplitude = detectedAmplitude
+                // Apply median filtering and smoothing for stability
+                let (filteredFrequency, filteredAmplitude) = self.applyFiltering(frequency: detectedPitch, amplitude: detectedAmplitude)
 
-                    let (note, octave) = PitchDetector.frequencyToNoteAndOctave(detectedPitch)
+                if filteredAmplitude > self.config.minimumAmplitudeThreshold {
+                    self.currentFrequency = filteredFrequency
+                    self.currentAmplitude = filteredAmplitude
+
+                    let (note, octave) = PitchDetector.frequencyToNoteAndOctave(filteredFrequency)
                     self.detectedNoteName = note
                     self.detectedOctave = octave
                 } else {
@@ -300,6 +385,39 @@ final class PitchDetector: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.startListening()
         }
+    }
+    
+    /// Update frame size for pitch analysis window
+    /// Note: This requires restarting the audio engine to take effect
+    @MainActor
+    func updateAnalysisFrameSize(_ newFrameSize: Int) {
+        config.analysisFrameSize = newFrameSize
+        
+        // Clear filtering history when changing frame size
+        clearFilteringHistory()
+        
+        // Restart audio engine if currently listening to apply new frame size
+        if isListening {
+            stopListening()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                self?.startListening()
+            }
+        }
+    }
+    
+    /// Update median filter window size for pitch stability
+    @MainActor
+    func updateMedianFilterWindowSize(_ newWindowSize: Int) {
+        config.medianFilterWindowSize = max(1, newWindowSize) // Ensure minimum of 1
+        clearFilteringHistory() // Clear history when changing window size
+    }
+    
+    /// Clear filtering history - useful when changing parameters or restarting
+    @MainActor
+    func clearFilteringHistory() {
+        frequencyHistory.removeAll()
+        amplitudeHistory.removeAll()
+        smoothedFrequency = 0.0
     }
 
     private func stopAudioEngine() {
