@@ -442,7 +442,7 @@ struct SheetMusicScrollerView: View {
         }
         
         // Step 3: Use getYFromNoteAndKey to get initial Y coordinate (yAnchor)
-        let yAnchor = StaffPositionMapper.getYFromNoteAndKey(anchorNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        let yAnchor = StaffPositionMapper.getYFromNoteAndKey(anchorNoteName, keySignature: keySignature, clef: clef, staffHeight: staffHeight, totalFrameHeight: totalFrameHeight)
         
         // Check if interpolation is disabled - if so, return exact staff position
         if !isInterpolationEnabled {
@@ -479,7 +479,7 @@ struct SheetMusicScrollerView: View {
         }
         
         // Calculate yNext using getYFromNoteAndKey
-        let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight)
+        let yNext = StaffPositionMapper.getYFromNoteAndKey(noteNext, keySignature: keySignature, clef: clef, staffHeight: staffHeight, totalFrameHeight: totalFrameHeight)
         
         // In both cases, freqTop is already correctly set:
         // Case 1: freqTop = active note frequency

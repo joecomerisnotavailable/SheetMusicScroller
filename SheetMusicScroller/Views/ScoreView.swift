@@ -27,7 +27,7 @@ struct ScoreView: View {
             GeometryReader { geometry in
                 let staffLines = StaffLine.createStaffLines(for: sheetMusic.musicContext.clef)
                 ForEach(Array(staffLines.enumerated()), id: \.offset) { index, staffLine in
-                    let yPos = StaffPositionMapper.getYFromNoteAndKey(staffLine.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+                    let yPos = StaffPositionMapper.getYFromNoteAndKey(staffLine.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight, totalFrameHeight: 220)
                     Rectangle()
                         .fill(Color.black)
                         .frame(width: geometry.size.width, height: 1)
@@ -44,7 +44,7 @@ struct ScoreView: View {
             // Scrolling notes area
             scrollingNotesView
         }
-        .frame(height: staffHeight + 80) // Extra space for notes above/below staff and ledger lines
+        .frame(height: 220) // Match the container frame height from SheetMusicScrollerView
         .clipped()
     }
     
@@ -86,7 +86,7 @@ struct ScoreView: View {
             // Key signature accidentals using image assets
             let accidentals = KeySignatureAccidental.createDMinorAccidentals(for: sheetMusic.musicContext.clef)
             ForEach(Array(accidentals.enumerated()), id: \.offset) { index, accidental in
-                let yPos = StaffPositionMapper.getYFromNoteAndKey(accidental.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+                let yPos = StaffPositionMapper.getYFromNoteAndKey(accidental.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight, totalFrameHeight: 220)
                 let position = CGPoint(x: 15, y: yPos)
                 
                 MusicalSymbolImageManager.accidentalImageView(
@@ -103,7 +103,7 @@ struct ScoreView: View {
         // Notes positioned on the staff - they scroll horizontally
         ForEach(Array(sheetMusic.timedNotes.enumerated()), id: \.element.id) { index, timedNote in
             let xPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
-            let yPosition = StaffPositionMapper.getYFromNoteAndKey(timedNote.note.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+            let yPosition = StaffPositionMapper.getYFromNoteAndKey(timedNote.note.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight, totalFrameHeight: 220)
             let hasPassedSquiggle = xPosition <= squiggleX
             
             // Determine note color: use persistent color if available, current squiggle color if just passed, or default
@@ -136,7 +136,7 @@ struct ScoreView: View {
                         // Create a temporary note name for this ledger line position to get consistent Y positioning
                         let ledgerMidi = StaffPositionMapper.staffPositionToMidiNote(linePosition, clef: sheetMusic.musicContext.clef)
                         let ledgerNoteName = StaffPositionMapper.midiNoteToNoteName(ledgerMidi)
-                        let ledgerY = StaffPositionMapper.getYFromNoteAndKey(ledgerNoteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight)
+                        let ledgerY = StaffPositionMapper.getYFromNoteAndKey(ledgerNoteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight, totalFrameHeight: 220)
                         
                         Rectangle()
                             .fill(Color.black)

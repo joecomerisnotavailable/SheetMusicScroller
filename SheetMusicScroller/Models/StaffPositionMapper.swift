@@ -127,11 +127,14 @@ class StaffPositionMapper {
     ///   - clef: The clef type (default: treble)
     ///   - staffHeight: The height of the staff in pixels (default: 120)
     /// - Returns: Y coordinate in pixels
-    static func getYFromNoteAndKey(_ noteName: String, keySignature: String, clef: Clef = .treble, staffHeight: CGFloat = 120) -> CGFloat {
+    static func getYFromNoteAndKey(_ noteName: String, keySignature: String, clef: Clef = .treble, staffHeight: CGFloat = 120, totalFrameHeight: CGFloat = 220) -> CGFloat {
         let context = MusicContext(keySignature: keySignature, clef: clef)
         let staffPosition = noteNameToStaffPosition(noteName, context: context)
         
-        // Ensure staff lines are positioned properly within the frame
+        // Calculate the offset to center the staff within the total frame
+        let frameOffset = (totalFrameHeight - staffHeight) / 2.0
+        
+        // Ensure staff lines are positioned properly within the staff area
         // Use staff line spacing that keeps all 5 lines within the staff height
         let topMargin: CGFloat = 10
         let bottomMargin: CGFloat = 10
@@ -140,7 +143,7 @@ class StaffPositionMapper {
         
         // Staff positions: -4 (top line) to +4 (bottom line)
         // Map to Y coordinates: topMargin to (staffHeight - bottomMargin)
-        let yPosition = topMargin + ((staffPosition + 4.0) * lineSpacing / 2.0)
+        let yPosition = frameOffset + topMargin + ((staffPosition + 4.0) * lineSpacing / 2.0)
         
         return CGFloat(yPosition)
     }
