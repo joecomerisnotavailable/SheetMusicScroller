@@ -84,6 +84,15 @@ struct SheetMusicScrollerView: View {
     @State private var noteColors: [UUID: Color] = [:]  // Track persistent color for each note after it passes
     @State private var notePerformanceData: [UUID: NotePerformanceTracker] = [:]  // Track performance over time for each note
     
+    /// Configuration for squiggle drawing appearance
+    @State private var squiggleDrawingConfig = SquiggleDrawingConfig(
+        useSmoothCurves: true,
+        lineWidth: 2.5,
+        tipSize: 6.0,
+        smoothingFactor: 0.6,
+        useRoundLineCaps: true
+    )
+    
     private let noteSpacing: CGFloat = 60
     private let scrollSpeed: CGFloat = 30 // pixels per second
     private let squiggleX: CGFloat = 160   // Fixed x position of squiggle (moved right for better visibility)
@@ -192,13 +201,14 @@ struct SheetMusicScrollerView: View {
             )
             .frame(height: 220)  // Increased to accommodate extended staff range
             
-            // Historical marker squiggle
+            // Historical marker squiggle with enhanced drawing
             SquiggleView(
                 height: 200,  // Increased height to match new frame
                 currentYPosition: currentSquiggleYPosition,
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
-                tipColor: squiggleColor
+                tipColor: squiggleColor,
+                drawingConfig: squiggleDrawingConfig
             )
         }
         .frame(height: 220)  // Increased to match ScoreView height
@@ -411,6 +421,67 @@ struct SheetMusicScrollerView: View {
                     Text("Reset smoothing buffers")
                         .font(.caption2)
                         .foregroundColor(.secondary)
+                }
+                
+                Divider()
+                
+                // Squiggle drawing style controls
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Squiggle Drawing Style")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    
+                    HStack(spacing: 16) {
+                        Toggle("Smooth Curves", isOn: $squiggleDrawingConfig.useSmoothCurves)
+                            .font(.caption)
+                        
+                        Toggle("Round Caps", isOn: $squiggleDrawingConfig.useRoundLineCaps)
+                            .font(.caption)
+                    }
+                    
+                    // Quick style presets
+                    HStack(spacing: 8) {
+                        Button("Crayon") {
+                            squiggleDrawingConfig = SquiggleDrawingConfig(
+                                useSmoothCurves: true,
+                                lineWidth: 4.0,
+                                tipSize: 8.0,
+                                smoothingFactor: 0.8,
+                                useRoundLineCaps: true
+                            )
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                        
+                        Button("Pen") {
+                            squiggleDrawingConfig = SquiggleDrawingConfig(
+                                useSmoothCurves: true,
+                                lineWidth: 1.5,
+                                tipSize: 4.0,
+                                smoothingFactor: 0.4,
+                                useRoundLineCaps: false
+                            )
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                        
+                        Button("Linear") {
+                            squiggleDrawingConfig = SquiggleDrawingConfig(
+                                useSmoothCurves: false,
+                                lineWidth: 2.0,
+                                tipSize: 6.0,
+                                smoothingFactor: 0.0,
+                                useRoundLineCaps: true
+                            )
+                        }
+                        .font(.caption2)
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                        
+                        Spacer()
+                    }
                 }
             }
         }
