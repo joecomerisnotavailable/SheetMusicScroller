@@ -156,8 +156,8 @@ struct MusicalSymbolImageManager {
         switch clef {
         case .treble:
             // Treble clef should span from approximately E5 to below the staff
-            let g4Y = StaffPositionMapper.getYFromNoteAndKey("G4", keySignature: "C major", clef: clef, staffHeight: staffHeight)
-            let e5Y = StaffPositionMapper.getYFromNoteAndKey("E5", keySignature: "C major", clef: clef, staffHeight: staffHeight)
+            let g4Y = StaffPositionMapper.getYFromNoteAndKey("G4", keySignature: "C major", clef: clef, staffHeight: staffHeight, totalFrameHeight: 220)
+            let e5Y = StaffPositionMapper.getYFromNoteAndKey("E5", keySignature: "C major", clef: clef, staffHeight: staffHeight, totalFrameHeight: 220)
             let distanceG4ToE5 = g4Y - e5Y
             return distanceG4ToE5 * 2.2
         case .bass:
@@ -185,7 +185,8 @@ struct MusicalSymbolImageManager {
             clefInfo.referenceNoteName,
             keySignature: keySignature,
             clef: clef,
-            staffHeight: staffHeight
+            staffHeight: staffHeight,
+            totalFrameHeight: 220
         )
         
         return CGPoint(x: xPosition, y: yPosition)
