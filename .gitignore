@@ -41,3 +41,4 @@ iOSInjectionProject/
 # Demo and validation scripts
 validate_improvements.swift
 configuration_demo.swift
+visual_demo.swift
