@@ -400,6 +400,11 @@ final class PitchDetector: ObservableObject {
     }
     
     private func setupAudioKitPitchTap(_ mic: AudioEngine.InputNode) {
+        // Stop any existing tracker and remove taps first to prevent conflicts
+        tracker?.stop()
+        tracker = nil
+        mic.avAudioNode.removeTap(onBus: 0)
+        
         // Set up the pitch tracker using AudioKit's PitchTap
         tracker = PitchTap(mic) { (pitch: [Float], amplitude: [Float]) in
             // For debugging: print detected values occasionally (not every frame to reduce spam)
@@ -444,6 +449,9 @@ final class PitchDetector: ObservableObject {
         // We'll use AudioKit's audio tap to get raw audio data and process it with YIN
         let bufferSize = config.analysisFrameSize
         let sampleRate = 44100.0  // Standard sample rate
+        
+        // Remove any existing tap first to prevent "nullptr == Tap()" crash
+        mic.avAudioNode.removeTap(onBus: 0)
         
         // Install tap on the microphone input to get raw audio data
         mic.avAudioNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(bufferSize), format: nil) { [weak self] (buffer: AVAudioPCMBuffer, time: AVAudioTime) in
