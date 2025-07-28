@@ -1,4 +1,3 @@
-#if canImport(SwiftUI)
 import SwiftUI
 
 @main
@@ -23,11 +22,3 @@ extension Scene {
         #endif
     }
 }
-#else
-// Provide a stub for non-SwiftUI platforms
-public struct SheetMusicScrollerApp {
-    public static func main() {
-        print("SheetMusicScroller: SwiftUI not available on this platform")
-    }
-}
-#endif

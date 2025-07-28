@@ -1,4 +1,3 @@
-#if canImport(SwiftUI)
 import SwiftUI
 
 /// Utility for loading and positioning musical symbol images with origin-based placement
@@ -193,9 +192,3 @@ struct MusicalSymbolImageManager {
         return CGPoint(x: xPosition, y: yPosition)
     }
 }
-#else
-// Provide a stub for non-SwiftUI platforms
-public struct MusicalSymbolImageManager {
-    public init() {}
-}
-#endif

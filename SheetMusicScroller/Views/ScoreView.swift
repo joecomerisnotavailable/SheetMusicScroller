@@ -1,4 +1,3 @@
-#if canImport(SwiftUI)
 import SwiftUI
 
 /// View that renders a musical staff with separated fixed gutter and scrolling notes using the new mapping system
@@ -181,9 +180,3 @@ struct ScoreView: View {
     .padding()
     .background(Color.white)
 }
-#else
-// Provide a stub for non-SwiftUI platforms
-public struct ScoreView {
-    public init() {}
-}
-#endif

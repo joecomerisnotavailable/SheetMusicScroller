@@ -11,7 +11,7 @@ import Foundation
 import SwiftUI
 #endif
 
-#if canImport(AudioKit) && (os(iOS) || os(macOS))
+#if canImport(AudioKit)
 import AudioKit
 import AudioKitEX
 import SoundpipeAudioKit
@@ -88,7 +88,7 @@ final class PitchDetector: ObservableObject {
     }
 
     // AudioKit variables
-    #if canImport(AudioKit) && (os(iOS) || os(macOS))
+    #if canImport(AudioKit)
     private var engine: AudioEngine?
     private var mic: AudioEngine.InputNode?
     private var tracker: PitchTap?
@@ -99,7 +99,7 @@ final class PitchDetector: ObservableObject {
     private var permissionTimer: Timer?
 
     init() {
-        #if canImport(AudioKit) && canImport(AVFoundation) && (os(iOS) || os(macOS))
+        #if canImport(AudioKit) && canImport(AVFoundation)
         checkPermissionsAndSetup()
         #else
         print("AudioKit or AVFoundation is not available on this platform. Pitch detection will not work.")
@@ -111,7 +111,7 @@ final class PitchDetector: ObservableObject {
         // Only cleanup non-main-actor, thread-safe resources here
         permissionTimer?.invalidate()
         // Do NOT call @MainActor methods from deinit
-        #if canImport(AudioKit) && canImport(AVFoundation) && (os(iOS) || os(macOS))
+        #if canImport(AudioKit) && canImport(AVFoundation)
         stopAudioEngine()
         #endif
     }
@@ -267,7 +267,7 @@ final class PitchDetector: ObservableObject {
 
     // MARK: - AudioKit Setup and Permission
 
-    #if canImport(AudioKit) && canImport(AVFoundation) && (os(iOS) || os(macOS))
+    #if canImport(AudioKit) && canImport(AVFoundation)
     private func checkPermissionsAndSetup() {
         switch AVAudioSession.sharedInstance().recordPermission {
         case .granted:
@@ -445,8 +445,15 @@ final class PitchDetector: ObservableObject {
         let bufferSize = config.analysisFrameSize
         let sampleRate = 44100.0  // Standard sample rate
         
+        // Try to access the underlying AVAudioNode for installing a tap
+        // AudioKit's InputNode should have an underlying AVAudioNode
+        guard let avAudioNode = mic.avAudioNode else {
+            print("Could not access underlying AVAudioNode for YIN processing")
+            return
+        }
+        
         // Install tap on the microphone input to get raw audio data
-        mic.avAudioUnitOrNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(bufferSize), format: nil) { [weak self] (buffer, time) in
+        avAudioNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(bufferSize), format: nil) { [weak self] (buffer: AVAudioPCMBuffer, time: AVAudioTime) in
             guard let self = self else { return }
             
             // Convert AVAudioPCMBuffer to Float array
@@ -508,7 +515,7 @@ final class PitchDetector: ObservableObject {
     @MainActor
     func startListening() {
         print("Starting pitch detection...")
-        #if canImport(AudioKit) && canImport(AVFoundation) && (os(iOS) || os(macOS))
+        #if canImport(AudioKit) && canImport(AVFoundation)
         if !isListening {
             if microphonePermissionGranted {
                 setupAudioKit()
@@ -588,7 +595,7 @@ final class PitchDetector: ObservableObject {
         
         // Remove audio tap if installed
         if audioTapInstalled, let mic = mic {
-            mic.avAudioUnitOrNode.removeTap(onBus: 0)
+            mic.avAudioNode?.removeTap(onBus: 0)
             audioTapInstalled = false
             print("Audio tap removed")
         }

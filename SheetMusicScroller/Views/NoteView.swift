@@ -1,4 +1,3 @@
-#if canImport(SwiftUI)
 import SwiftUI
 
 /// View that renders a single musical note using the new mapping system
@@ -106,9 +105,3 @@ struct NoteView: View {
     }
     .padding()
 }
-#else
-// Provide a stub for non-SwiftUI platforms
-public struct NoteView {
-    public init() {}
-}
-#endif

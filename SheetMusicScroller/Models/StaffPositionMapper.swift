@@ -1,7 +1,5 @@
 import Foundation
-#if canImport(SwiftUI)
 import SwiftUI
-#endif
 
 /// Represents a staff line with positioning logic
 struct StaffLine {

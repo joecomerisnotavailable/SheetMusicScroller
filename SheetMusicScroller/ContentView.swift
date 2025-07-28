@@ -1,8 +1,5 @@
-#if canImport(SwiftUI)
 import SwiftUI
-#endif
 
-#if canImport(SwiftUI)
 struct ContentView: View {
     /// Platform-specific title view
     @ViewBuilder
@@ -69,9 +66,3 @@ struct NavigationStyleModifier: ViewModifier {
 #Preview {
     ContentView()
 }
-#else
-// Provide a stub for non-SwiftUI platforms
-public struct ContentView {
-    public init() {}
-}
-#endif
