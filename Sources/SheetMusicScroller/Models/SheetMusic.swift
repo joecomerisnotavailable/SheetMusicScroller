@@ -1,0 +1,81 @@
+import Foundation
+
+/// Represents a note with timing information for playback
+struct TimedNote: Identifiable, Codable {
+    let id = UUID()
+    let note: Note           // The immutable note data
+    let startTime: Double    // Time in seconds when note starts
+    
+    init(note: Note, startTime: Double) {
+        self.note = note
+        self.startTime = startTime
+    }
+    
+    /// Calculate duration in seconds based on note value and tempo
+    func duration(in context: MusicContext) -> Double {
+        return note.noteValue.duration(at: context.tempo)
+    }
+    
+    /// Calculate the staff position for this note in the given context
+    func staffPosition(in context: MusicContext) -> Double {
+        return StaffPositionMapper.noteNameToStaffPosition(note.noteName, context: context)
+    }
+    
+    /// Get accidental display for this note in the given context
+    func accidentalDisplay(in context: MusicContext) -> String {
+        return StaffPositionMapper.getAccidentalDisplay(for: note.noteName, in: context.keySignature)
+    }
+}
+
+/// Represents a piece of sheet music with musical context and timed notes
+struct SheetMusic: Identifiable, Codable {
+    let id = UUID()
+    let title: String
+    let composer: String
+    let musicContext: MusicContext  // Musical context (key, clef, tempo, A4 reference)
+    let timeSignature: String       // e.g., "4/4", "3/4"
+    let timedNotes: [TimedNote]     // Notes with timing information
+    
+    init(title: String, composer: String, musicContext: MusicContext, timeSignature: String, timedNotes: [TimedNote]) {
+        self.title = title
+        self.composer = composer
+        self.musicContext = musicContext
+        self.timeSignature = timeSignature
+        self.timedNotes = timedNotes
+    }
+    
+    /// Convenience initializer with individual parameters
+    init(title: String, composer: String, keySignature: String, clef: Clef = .treble, tempo: Double = 120, timeSignature: String, timedNotes: [TimedNote], a4Reference: Double = 440.0) {
+        let context = MusicContext(keySignature: keySignature, clef: clef, tempo: tempo, a4Reference: a4Reference)
+        self.init(title: title, composer: composer, musicContext: context, timeSignature: timeSignature, timedNotes: timedNotes)
+    }
+    
+    /// Total duration of the piece in seconds
+    var totalDuration: Double {
+        return timedNotes.max(by: { 
+            $0.startTime + $0.duration(in: musicContext) < $1.startTime + $1.duration(in: musicContext) 
+        })?.startTime ?? 0
+    }
+    
+    /// Get notes that should be active at a given time
+    func notesAt(time: Double) -> [TimedNote] {
+        return timedNotes.filter { timedNote in
+            let noteDuration = timedNote.duration(in: musicContext)
+            return timedNote.startTime <= time && time <= timedNote.startTime + noteDuration
+        }
+    }
+    
+    /// Get all notes that start before or at a given time
+    func notesUpTo(time: Double) -> [TimedNote] {
+        return timedNotes.filter { timedNote in
+            timedNote.startTime <= time
+        }
+    }
+    
+    /// Get staff positions for all notes in this music
+    var noteStaffPositions: [(TimedNote, Double)] {
+        return timedNotes.map { timedNote in
+            (timedNote, timedNote.staffPosition(in: musicContext))
+        }
+    }
+}
