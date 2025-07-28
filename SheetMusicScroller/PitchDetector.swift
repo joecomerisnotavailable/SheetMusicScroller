@@ -28,7 +28,7 @@ struct PitchDetectionConfig {
     /// Frame size for analysis window (AudioKit buffer size)
     var analysisFrameSize: Int = 1024
     /// Minimum amplitude threshold for valid pitch detection
-    var minimumAmplitudeThreshold: Double = 0.05
+    var minimumAmplitudeThreshold: Double = 0.01
     /// Whether to enable median filtering for pitch stability - DISABLED for raw response
     var enableMedianFiltering: Bool = false
     /// Whether to enable frequency smoothing - DISABLED for raw response
@@ -447,10 +447,7 @@ final class PitchDetector: ObservableObject {
         
         // Try to access the underlying AVAudioNode for installing a tap
         // AudioKit's InputNode should have an underlying AVAudioNode
-        guard let avAudioNode = mic.avAudioNode else {
-            print("Could not access underlying AVAudioNode for YIN processing")
-            return
-        }
+        let avAudioNode = mic.avAudioNode
         
         // Install tap on the microphone input to get raw audio data
         avAudioNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(bufferSize), format: nil) { [weak self] (buffer: AVAudioPCMBuffer, time: AVAudioTime) in
@@ -595,7 +592,7 @@ final class PitchDetector: ObservableObject {
         
         // Remove audio tap if installed
         if audioTapInstalled, let mic = mic {
-            mic.avAudioNode?.removeTap(onBus: 0)
+            mic.avAudioNode.removeTap(onBus: 0)
             audioTapInstalled = false
             print("Audio tap removed")
         }
