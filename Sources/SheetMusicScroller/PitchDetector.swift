@@ -446,7 +446,7 @@ final class PitchDetector: ObservableObject {
         let sampleRate = 44100.0  // Standard sample rate
         
         // Install tap on the microphone input to get raw audio data
-        mic.avAudioUnitOrNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(bufferSize), format: nil) { [weak self] (buffer, time) in
+        mic.avAudioNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(bufferSize), format: nil) { [weak self] (buffer: AVAudioPCMBuffer, time: AVAudioTime) in
             guard let self = self else { return }
             
             // Convert AVAudioPCMBuffer to Float array
@@ -588,19 +588,15 @@ final class PitchDetector: ObservableObject {
         
         // Remove audio tap if installed
         if audioTapInstalled, let mic = mic {
-            mic.avAudioUnitOrNode.removeTap(onBus: 0)
+            mic.avAudioNode.removeTap(onBus: 0)
             audioTapInstalled = false
             print("Audio tap removed")
         }
         
         // Stop engine
         if let engine = engine {
-            do {
-                try engine.stop()
-                print("AudioKit engine stopped successfully")
-            } catch {
-                print("Error stopping AudioKit engine: \(error.localizedDescription)")
-            }
+            engine.stop()
+            print("AudioKit engine stopped successfully")
         }
         
         // Clean up audio session
