@@ -1,3 +1,4 @@
+#if canImport(SwiftUI)
 import SwiftUI
 
 /// Tracks performance data for a note over the time it was active
@@ -819,3 +820,9 @@ struct SheetMusicScrollerView: View {
     SheetMusicScrollerView(sheetMusic: BachAllemandeData.bachAllemande)
         .frame(width: 800, height: 600)
 }
+#else
+// Provide a stub for non-SwiftUI platforms
+public struct SheetMusicScrollerView {
+    public init() {}
+}
+#endif

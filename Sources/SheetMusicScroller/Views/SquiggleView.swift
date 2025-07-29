@@ -1,3 +1,4 @@
+#if canImport(SwiftUI)
 import SwiftUI
 
 /// Configuration for squiggle drawing parameters
@@ -200,3 +201,9 @@ struct SquiggleView: View {
     .padding()
     .background(Color.gray.opacity(0.1))
 }
+#else
+// Provide a stub for non-SwiftUI platforms
+public struct SquiggleView {
+    public init() {}
+}
+#endif
