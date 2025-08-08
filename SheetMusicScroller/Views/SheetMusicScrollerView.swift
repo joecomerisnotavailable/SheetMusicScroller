@@ -91,8 +91,14 @@ struct SheetMusicScrollerView: View {
         useRoundLineCaps: true
     )
     
-    private let noteSpacing: CGFloat = 60
     private let scrollSpeed: CGFloat = 30 // pixels per second
+    private let gutterWidth: CGFloat = 80
+    private let pixelsPerSecond: CGFloat = 100  // Must match ScoreView's scaling
+    
+    /// Calculate the X position for a note based on its start time
+    private func calculateNoteXPosition(for timedNote: TimedNote) -> CGFloat {
+        return CGFloat(timedNote.startTime) * pixelsPerSecond + gutterWidth + 20 - scrollOffset
+    }
     private let squiggleX: CGFloat = 160   // Fixed x position of squiggle (moved right for better visibility)
     
     init(sheetMusic: SheetMusic) {
@@ -467,29 +473,14 @@ struct SheetMusicScrollerView: View {
         return sheetMusic.notesAt(time: scoreTime)
     }
     
-    /// Get the currently active note for squiggle reference
-    /// This is the note that has most recently passed from the right of the squiggle tip to the left
-    /// Based on spatial position rather than just score time
+    /// Get the currently active note based on score time and note durations
+    /// This is the note that should be playing at the current time position
     private var currentlyActiveNote: TimedNote? {
-        let gutterWidth: CGFloat = 80
-        
-        // Find the note that has most recently passed the squiggle tip
-        var mostRecentPassedNote: TimedNote?
-        
-        for (index, timedNote) in sheetMusic.timedNotes.enumerated() {
-            let noteXPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
-            let hasPassedSquiggle = noteXPosition <= squiggleX
-            
-            if hasPassedSquiggle {
-                // This note has passed the squiggle, keep track of it as a candidate
-                mostRecentPassedNote = timedNote
-            } else {
-                // This note hasn't passed yet, so we've found our answer
-                break
-            }
+        return sheetMusic.timedNotes.first { timedNote in
+            let noteDuration = timedNote.duration(in: sheetMusic.musicContext)
+            return timedNote.startTime <= scoreTime && 
+                   scoreTime < timedNote.startTime + noteDuration
         }
-        
-        return mostRecentPassedNote
     }
     
     /// Determines if two note names share the same staff position (enharmonic equivalence)
@@ -731,18 +722,18 @@ struct SheetMusicScrollerView: View {
     
     private func startScrolling() {
         scrollTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { _ in
-            // Continuous scrolling for the squiggle history
-            scrollOffset += scrollSpeed * 0.02
-            
-            // Advance score time to track which note should be active
-            // Use the music context tempo to advance time realistically
+            // Advance score time based on musical tempo
             let secondsPerBeat = 60.0 / sheetMusic.musicContext.tempo
             let timeAdvancementRate = secondsPerBeat * 0.02 // Advance score time based on tempo
             scoreTime += timeAdvancementRate
             
+            // Convert scoreTime to scroll position using time-based scaling
+            scrollOffset = CGFloat(scoreTime) * pixelsPerSecond
+            
             // Optional: Reset score time if we've exceeded the total duration
             if scoreTime > sheetMusic.totalDuration {
                 scoreTime = 0  // Loop back to beginning
+                scrollOffset = 0
             }
             
             // Track performance data for the currently active note
@@ -786,10 +777,8 @@ struct SheetMusicScrollerView: View {
     /// Update persistent colors for notes that have just passed the squiggle
     /// This captures the time-averaged performance color when a note becomes inactive
     private func updateNoteColorsForPassedNotes() {
-        let gutterWidth: CGFloat = 80
-        
-        for (index, timedNote) in sheetMusic.timedNotes.enumerated() {
-            let noteXPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
+        for timedNote in sheetMusic.timedNotes {
+            let noteXPosition = calculateNoteXPosition(for: timedNote)
             let hasPassedSquiggle = noteXPosition <= squiggleX
             
             // If note has passed squiggle but we don't have a color stored yet, calculate final color

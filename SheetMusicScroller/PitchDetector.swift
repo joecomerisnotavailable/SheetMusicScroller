@@ -29,10 +29,10 @@ import UIKit
 struct PitchDetectionConfig {
     /// Window size for median filtering (number of samples to keep for smoothing) - DISABLED by default
     var medianFilterWindowSize: Int = 1  // Set to 1 to effectively disable
-    /// Frame size for analysis window (AudioKit buffer size) - Optimized for realtime response
-    var analysisFrameSize: Int = 512  // Fast analysis window (~11.6ms at 44.1kHz)
+    /// Frame size for analysis window (AudioKit buffer size) - Optimized for ultra-low latency
+    var analysisFrameSize: Int = 256  // Minimal size for fastest response (~5.8ms at 44.1kHz)
     /// Hop size for overlapping analysis windows (samples to advance between analyses)
-    var hopSize: Int = 64  // 87.5% overlap for 8x more frequent analysis (~1.45ms between analyses)
+    var hopSize: Int = 32  // Maximum overlap for highest analysis frequency (~0.7ms between analyses)
     /// Minimum amplitude threshold for valid pitch detection
     var minimumAmplitudeThreshold: Double = 0.005  // Lowered for moderate volume detection
     /// Whether to enable median filtering for pitch stability - DISABLED for raw response
@@ -42,7 +42,7 @@ struct PitchDetectionConfig {
     /// Smoothing factor for frequency values (0.0 = no smoothing, 1.0 = maximum smoothing) - DISABLED
     var frequencySmoothingFactor: Double = 0.0
     /// Whether to use optimized YIN algorithm instead of AudioKit's default PitchTap
-    var useYIN: Bool = true
+    var useYIN: Bool = false  // Temporarily disable YIN for testing
     /// YIN threshold for pitch detection quality (lower = more sensitive, higher = more selective)
     var yinThreshold: Double = 0.05  // Lowered from 0.1 for better sensitivity
     /// Maximum search range for YIN (supports cello C string to highest piano note)
@@ -143,13 +143,6 @@ final class PitchDetector: ObservableObject {
     // Performance monitoring for adaptive optimization
     private var uiUpdateCount: Int = 0
     private var lastPerformanceLog: TimeInterval = 0
-    
-    // UI update throttling for optimal performance
-    private var lastUIUpdate: TimeInterval = 0
-    private var lastUpdateFrequency: Double = 0
-    private var lastUpdateAmplitude: Double = 0
-    private var lastUpdateNote: String = "--"
-    private let minUIUpdateInterval: TimeInterval = 1.0/60.0  // Maximum 60 FPS UI updates
 
     init() {
         // Detect device capabilities for monitoring purposes only
@@ -342,7 +335,7 @@ final class PitchDetector: ObservableObject {
         }
     }
     
-    /// Process analysis results with hysteresis and update UI (optimized for performance)
+    /// Process analysis results with hysteresis and update UI (optimized for real-time response)
     private func processAnalysisResults(frequency: Double, confidence: Double, amplitude: Double) {
         // Apply hysteresis for stable pitch detection
         let (shouldDetectPitch, finalFrequency) = applyHysteresis(
@@ -351,35 +344,20 @@ final class PitchDetector: ObservableObject {
             amplitude: amplitude
         )
         
-        // Check if we should update UI - throttle updates AND only update on meaningful changes
-        let now = CFAbsoluteTimeGetCurrent()
-        let timeSinceLastUpdate = now - lastUIUpdate
+        // Update UI immediately - but only on actual changes to reduce main thread pressure
+        let frequencyChanged = abs(finalFrequency - self.currentFrequency) > 0.5
+        let amplitudeChanged = abs(amplitude - self.currentAmplitude) > 0.001
+        let stateChanged = (shouldDetectPitch && self.currentFrequency == 0) || (!shouldDetectPitch && self.currentFrequency > 0)
         
-        // Determine if there's a meaningful change worth updating the UI for
-        let (note, octave) = shouldDetectPitch ? PitchDetector.frequencyToNoteAndOctave(finalFrequency) : ("--", 0)
-        let noteString = shouldDetectPitch ? "\(note)\(octave)" : "--"
-        
-        let frequencyChanged = abs(finalFrequency - lastUpdateFrequency) > 1.0  // 1 Hz threshold
-        let amplitudeChanged = abs(amplitude - lastUpdateAmplitude) > 0.001     // Small amplitude threshold
-        let noteChanged = noteString != lastUpdateNote
-        let hasSignificantChange = frequencyChanged || amplitudeChanged || noteChanged
-        
-        // Only update UI if enough time has passed AND there's a meaningful change
-        let shouldUpdateUI = timeSinceLastUpdate >= minUIUpdateInterval && hasSignificantChange
-        
-        if shouldUpdateUI {
-            lastUIUpdate = now
-            lastUpdateFrequency = finalFrequency
-            lastUpdateAmplitude = amplitude
-            lastUpdateNote = noteString
-            
-            // Update UI on main thread with batched changes
+        if frequencyChanged || amplitudeChanged || stateChanged {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 
                 if shouldDetectPitch {
                     self.currentFrequency = finalFrequency
                     self.currentAmplitude = amplitude
+
+                    let (note, octave) = PitchDetector.frequencyToNoteAndOctave(finalFrequency)
                     self.detectedNoteName = note
                     self.detectedOctave = octave
                 } else {
@@ -392,10 +370,11 @@ final class PitchDetector: ObservableObject {
         }
         
         // Performance monitoring (much less frequent to avoid overhead)
+        let now = CFAbsoluteTimeGetCurrent()
         uiUpdateCount += 1
         if now - lastPerformanceLog >= 10.0 { // Log every 10 seconds
             let actualRefreshRate = Double(uiUpdateCount) / (now - lastPerformanceLog)
-            print("PitchDetector Performance - Analysis: \(String(format: "%.0f", actualRefreshRate)) Hz, UI Updates: \(String(format: "%.1f", 1.0/minUIUpdateInterval)) FPS max")
+            print("PitchDetector Performance - Analysis: \(String(format: "%.0f", actualRefreshRate)) Hz (smart UI updates)")
             uiUpdateCount = 0
             lastPerformanceLog = now
         }
@@ -579,10 +558,15 @@ final class PitchDetector: ObservableObject {
         }
         
         do {
-            // Configure audio session for recording
+            // Configure audio session for minimal latency recording
             try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
+            
+            // Set the smallest possible buffer size for minimal latency
+            try session.setPreferredIOBufferDuration(0.005)  // 5ms buffer (minimum possible)
+            try session.setPreferredSampleRate(44100)
+            
             try session.setActive(true)
-            print("Audio session configured successfully")
+            print("Audio session configured successfully with low latency settings")
         } catch {
             errorMessage = "Failed to setup audio session: \(error.localizedDescription)"
             print("Failed to setup audio session: \(error.localizedDescription)")
@@ -643,10 +627,8 @@ final class PitchDetector: ObservableObject {
             return
         }
 
-        // Give the engine a moment to fully initialize before setting up pitch detection
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.setupPitchTap()
-        }
+        // Set up pitch detection immediately
+        setupPitchTap()
     }
     
     private func setupPitchTap() {
@@ -696,40 +678,25 @@ final class PitchDetector: ObservableObject {
             let detectedPitch = Double(pitch.first ?? 0)
             let detectedAmplitude = Double(amplitude.first ?? 0)
 
-            // Apply validation and hysteresis on audio thread for speed
+            // Apply validation on audio thread for speed
             let isAmplitudeValid = detectedAmplitude > self.config.minimumAmplitudeThreshold
             let isFrequencyInRange = detectedPitch >= self.config.minFrequency && detectedPitch <= self.config.maxFrequency
-            
-            // Check if we should update UI - throttle updates AND only update on meaningful changes
-            let now = CFAbsoluteTimeGetCurrent()
-            let timeSinceLastUpdate = now - self.lastUIUpdate
-            
-            // Determine if there's a meaningful change worth updating the UI for
             let shouldDetectPitch = isAmplitudeValid && isFrequencyInRange && detectedPitch > 0
-            let (note, octave) = shouldDetectPitch ? PitchDetector.frequencyToNoteAndOctave(detectedPitch) : ("--", 0)
-            let noteString = shouldDetectPitch ? "\(note)\(octave)" : "--"
             
-            let frequencyChanged = abs(detectedPitch - self.lastUpdateFrequency) > 1.0  // 1 Hz threshold
-            let amplitudeChanged = abs(detectedAmplitude - self.lastUpdateAmplitude) > 0.001     // Small amplitude threshold
-            let noteChanged = noteString != self.lastUpdateNote
-            let hasSignificantChange = frequencyChanged || amplitudeChanged || noteChanged
+            // Update UI immediately for real-time response - but only on actual changes
+            let frequencyChanged = abs(detectedPitch - self.currentFrequency) > 0.5
+            let amplitudeChanged = abs(detectedAmplitude - self.currentAmplitude) > 0.001
+            let stateChanged = (shouldDetectPitch && self.currentFrequency == 0) || (!shouldDetectPitch && self.currentFrequency > 0)
             
-            // Only update UI if enough time has passed AND there's a meaningful change
-            let shouldUpdateUI = timeSinceLastUpdate >= self.minUIUpdateInterval && hasSignificantChange
-            
-            if shouldUpdateUI {
-                self.lastUIUpdate = now
-                self.lastUpdateFrequency = detectedPitch
-                self.lastUpdateAmplitude = detectedAmplitude
-                self.lastUpdateNote = noteString
-                
-                // Update UI on main thread with batched changes
+            if frequencyChanged || amplitudeChanged || stateChanged {
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     
                     if shouldDetectPitch {
                         self.currentFrequency = detectedPitch
                         self.currentAmplitude = detectedAmplitude
+
+                        let (note, octave) = PitchDetector.frequencyToNoteAndOctave(detectedPitch)
                         self.detectedNoteName = note
                         self.detectedOctave = octave
                     } else {
@@ -742,10 +709,11 @@ final class PitchDetector: ObservableObject {
             }
             
             // Performance monitoring (less frequent)
+            let now = CFAbsoluteTimeGetCurrent()
             self.uiUpdateCount += 1
             if now - self.lastPerformanceLog >= 10.0 { // Log every 10 seconds
                 let actualRefreshRate = Double(self.uiUpdateCount) / (now - self.lastPerformanceLog)
-                print("AudioKit PitchTap Performance - Analysis: \(String(format: "%.0f", actualRefreshRate)) Hz, UI Updates: \(String(format: "%.1f", 1.0/self.minUIUpdateInterval)) FPS max")
+                print("AudioKit PitchTap Performance - Analysis: \(String(format: "%.0f", actualRefreshRate)) Hz (real-time UI updates)")
                 self.uiUpdateCount = 0
                 self.lastPerformanceLog = now
             }
@@ -759,7 +727,7 @@ final class PitchDetector: ObservableObject {
         tracker?.start()
         isListening = true
         errorMessage = nil
-        print("AudioKit PitchTap started successfully with intelligent UI updates")
+        print("AudioKit PitchTap started successfully with real-time UI updates")
         print("Audio graph completed - microphone input connected to silent output")
     }
     
@@ -909,13 +877,9 @@ final class PitchDetector: ObservableObject {
         ringBufferIndex = 0
         isRingBufferFilled = false
         
-        // Reset performance monitoring and UI throttling
+        // Reset performance monitoring
         uiUpdateCount = 0
         lastPerformanceLog = CFAbsoluteTimeGetCurrent()
-        lastUIUpdate = 0
-        lastUpdateFrequency = 0
-        lastUpdateAmplitude = 0
-        lastUpdateNote = "--"
     }
 
     private func stopAudioEngine() {

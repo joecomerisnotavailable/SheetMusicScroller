@@ -52,9 +52,11 @@ struct SheetMusic: Identifiable, Codable {
     
     /// Total duration of the piece in seconds
     var totalDuration: Double {
-        return timedNotes.max(by: { 
-            $0.startTime + $0.duration(in: musicContext) < $1.startTime + $1.duration(in: musicContext) 
-        })?.startTime ?? 0
+        guard let lastNote = timedNotes.max(by: { 
+            ($0.startTime + $0.duration(in: musicContext)) < ($1.startTime + $1.duration(in: musicContext))
+        }) else { return 0 }
+        
+        return lastNote.startTime + lastNote.duration(in: musicContext)
     }
     
     /// Get notes that should be active at a given time

@@ -49,6 +49,15 @@ struct NoteView: View {
                     .frame(width: noteSize * 0.6, height: 2)
                     .offset(x: noteSize * 0.7, y: stemDirection * noteSize * 2.5)
             }
+            
+            // Duration bars for longer notes (half notes and whole notes)
+            if timedNote.note.noteValue.beats >= 2.0 {
+                let durationWidth = CGFloat(timedNote.note.noteValue.beats * 25)
+                Rectangle()
+                    .fill(noteColor.opacity(0.3))
+                    .frame(width: durationWidth, height: 3)
+                    .offset(x: durationWidth / 2, y: 0)
+            }
         }
         .scaleEffect(scale)
         .animation(.easeInOut(duration: 0.1), value: isActive)

@@ -6,11 +6,11 @@ struct ScoreView: View {
     let activeNotes: Set<UUID>
     let scrollOffset: CGFloat
     let staffHeight: CGFloat = 120
-    let noteSpacing: CGFloat = 60
     let gutterWidth: CGFloat = 80  // Width of the fixed gutter area
     let squiggleX: CGFloat        // X position of the squiggle for pass/fail detection
     let squiggleColor: Color      // Current squiggle tip color
     let noteColors: [UUID: Color] // Persistent colors for notes that have passed
+    let pixelsPerSecond: CGFloat = 100  // Scaling factor for time-to-pixel conversion
     
     init(sheetMusic: SheetMusic, activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0, squiggleX: CGFloat = 80, squiggleColor: Color = .red, noteColors: [UUID: Color] = [:]) {
         self.sheetMusic = sheetMusic
@@ -19,6 +19,11 @@ struct ScoreView: View {
         self.squiggleX = squiggleX
         self.squiggleColor = squiggleColor
         self.noteColors = noteColors
+    }
+    
+    /// Calculate the X position for a note based on its start time and duration
+    private func calculateNoteXPosition(for timedNote: TimedNote) -> CGFloat {
+        return CGFloat(timedNote.startTime) * pixelsPerSecond + gutterWidth + 20 - scrollOffset
     }
     
     var body: some View {
@@ -102,7 +107,7 @@ struct ScoreView: View {
     private var scrollingNotesView: some View {
         // Notes positioned on the staff - they scroll horizontally
         ForEach(Array(sheetMusic.timedNotes.enumerated()), id: \.element.id) { index, timedNote in
-            let xPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
+            let xPosition = calculateNoteXPosition(for: timedNote)
             let yPosition = StaffPositionMapper.getYFromNoteAndKey(timedNote.note.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight, totalFrameHeight: 220)
             let hasPassedSquiggle = xPosition <= squiggleX
             
