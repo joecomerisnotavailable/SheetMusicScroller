@@ -31,7 +31,7 @@ struct ScoreView: View {
     }
     
     /// Calculate the X position for a note based on its start time and duration
-    private func calculateNoteXPosition(for timedNote: TimedNote) -> CGFloat {
+    func calculateNoteXPosition(for timedNote: TimedNote) -> CGFloat {
         return CGFloat(timedNote.startTime) * pixelsPerSecond + gutterWidth + 20 - scrollOffset
     }
     
@@ -54,6 +54,13 @@ struct ScoreView: View {
                 fixedGutterView
                 Spacer()
             }
+            
+            // The thin fixed vertical bar that the squiggle sits on
+            Rectangle()
+                .fill(Color.black.opacity(0.7))
+                .frame(width: 1, height: staffHeight)
+                .position(x: squiggleX, y: 110) // 110 matches mid of 220 frame height
+                .accessibilityHidden(true)
             
             // Scrolling notes area
             scrollingNotesView
@@ -96,53 +103,33 @@ struct ScoreView: View {
     }
     
     private var scrollingNotesView: some View {
-        // Notes positioned on the staff - they scroll horizontally
-        ForEach(Array(sheetMusic.timedNotes.enumerated()), id: \.element.id) { index, timedNote in
-            let xPosition = calculateNoteXPosition(for: timedNote)
-            let yPosition = StaffPositionMapper.getYFromNoteAndKey(timedNote.note.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight, totalFrameHeight: 220)
-            let hasPassedSquiggle = xPosition <= squiggleX
-            
-            // Determine note color: use persistent color if available, current squiggle color if just passed, or default
-            let noteDisplayColor: Color? = {
-                if let persistentColor = noteColors[timedNote.id] {
-                    return persistentColor  // Use stored color for notes that have passed
-                } else if hasPassedSquiggle {
-                    return squiggleColor    // Use current squiggle color for newly passed notes
-                } else {
-                    return nil  // No special color for notes that haven't reached squiggle
-                }
-            }()
-            
-            Group {
+        ZStack {
+            ForEach(sheetMusic.timedNotes) { timedNote in
+                let x = calculateNoteXPosition(for: timedNote)
+                let isLeftOfBar = x <= squiggleX
+                let isActive = activeNotes.contains(timedNote.id)
+                let colorOverride: Color? = {
+                    if isActive { return squiggleColor }
+                    if isLeftOfBar, let c = noteColors[timedNote.id] { return c }
+                    return nil
+                }()
+                
                 NoteView(
                     timedNote: timedNote,
                     musicContext: sheetMusic.musicContext,
-                    isActive: activeNotes.contains(timedNote.id),
-                    squiggleColor: noteDisplayColor,
-                    scale: 1.0
+                    isActive: isActive,
+                    squiggleColor: colorOverride
                 )
-                .position(x: xPosition, y: yPosition)
-                
-                // Ledger lines for notes above or below the staff using unified mapping system
-                let staffPosition = timedNote.staffPosition(in: sheetMusic.musicContext)
-                let ledgerLines = StaffPositionMapper.getLedgerLinesCount(for: staffPosition)
-                if ledgerLines > 0 {
-                    let ledgerPositions = StaffPositionMapper.getLedgerLinePositions(for: staffPosition)
-                    ForEach(Array(ledgerPositions.enumerated()), id: \.offset) { _, linePosition in
-                        // Create a temporary note name for this ledger line position to get consistent Y positioning
-                        let ledgerMidi = StaffPositionMapper.staffPositionToMidiNote(linePosition, clef: sheetMusic.musicContext.clef)
-                        let ledgerNoteName = StaffPositionMapper.midiNoteToNoteName(ledgerMidi)
-                        let ledgerY = StaffPositionMapper.getYFromNoteAndKey(ledgerNoteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight, totalFrameHeight: 220)
-                        
-                        Rectangle()
-                            .fill(Color.black)
-                            .frame(width: 20, height: 1)
-                            .position(x: xPosition, y: ledgerY)
-                    }
-                }
+                .position(x: x, y: StaffPositionMapper.getYFromNoteAndKey(
+                    timedNote.note.noteName,
+                    keySignature: sheetMusic.musicContext.keySignature,
+                    clef: sheetMusic.musicContext.clef,
+                    staffHeight: staffHeight,
+                    totalFrameHeight: 220
+                ))
             }
-            .opacity(xPosition > -50 ? 1 : 0) // Fade out notes that have scrolled too far left
         }
+    }
     }
 }
 

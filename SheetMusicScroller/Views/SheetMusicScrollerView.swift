@@ -96,8 +96,23 @@ struct SheetMusicScrollerView: View {
     private let pixelsPerSecond: CGFloat = 100  // Must match ScoreView's scaling
     
     /// Calculate the X position for a note based on its start time
-    private func calculateNoteXPosition(for timedNote: TimedNote) -> CGFloat {
+    func calculateNoteXPosition(for timedNote: TimedNote) -> CGFloat {
         return CGFloat(timedNote.startTime) * pixelsPerSecond + gutterWidth + 20 - scrollOffset
+    }
+    
+    /// Computes the note nearest to the left of the fixed vertical bar.
+    private func activeNoteByBarPosition() -> TimedNote? {
+        let candidates = sheetMusic.timedNotes.filter { timedNote in
+            calculateNoteXPosition(for: timedNote) <= squiggleX
+        }
+        return candidates.max(by: { a, b in
+            calculateNoteXPosition(for: a) < calculateNoteXPosition(for: b)
+        })
+    }
+    
+    /// Returns the set containing the active note ID (by bar), or empty if none.
+    private var activeNotesByBar: Set<UUID> {
+        if let n = activeNoteByBarPosition() { return [n.id] } else { return [] }
     }
     private let squiggleX: CGFloat = 160   // Fixed x position of squiggle (moved right for better visibility)
     
@@ -197,7 +212,7 @@ struct SheetMusicScrollerView: View {
             // Scrolling score with fixed gutter
             ScoreView(
                 sheetMusic: sheetMusic,
-                activeNotes: Set(activeNotes.map { $0.id }),
+                activeNotes: activeNotesByBar,
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
                 squiggleColor: squiggleColor,
@@ -205,13 +220,11 @@ struct SheetMusicScrollerView: View {
             )
             .frame(height: 220)  // Increased to accommodate extended staff range
             
-            // Historical marker squiggle with enhanced drawing
+            // Squiggle tip anchored to the bar, vertical position tracks detected pitch
             SquiggleView(
-                height: 200,  // Increased height to match new frame
-                currentYPosition: currentSquiggleYPosition,
-                scrollOffset: scrollOffset,
-                squiggleX: squiggleX,
-                tipColor: squiggleColor,
+                fixedX: squiggleX,
+                y: currentSquiggleYPosition,
+                color: squiggleColor,
                 drawingConfig: squiggleDrawingConfig
             )
         }
@@ -467,20 +480,10 @@ struct SheetMusicScrollerView: View {
         .cornerRadius(8)
     }
     
-    private var activeNotes: [TimedNote] {
-        // In pitch mode, determine active notes based on score time progression
-        // For simplicity, we'll track the most recent note that should be playing
-        return sheetMusic.notesAt(time: scoreTime)
-    }
-    
-    /// Get the currently active note based on score time and note durations
-    /// This is the note that should be playing at the current time position
+    /// Get the currently active note based on bar position (nearest note to the left of the bar)
+    /// This is the note that should be considered for pitch comparison
     private var currentlyActiveNote: TimedNote? {
-        return sheetMusic.timedNotes.first { timedNote in
-            let noteDuration = timedNote.duration(in: sheetMusic.musicContext)
-            return timedNote.startTime <= scoreTime && 
-                   scoreTime < timedNote.startTime + noteDuration
-        }
+        return activeNoteByBarPosition()
     }
     
     /// Determines if two note names share the same staff position (enharmonic equivalence)
@@ -774,30 +777,19 @@ struct SheetMusicScrollerView: View {
         notePerformanceData[activeNote.id]?.addSample(accuracy: semitoneDiff, time: scoreTime)
     }
     
-    /// Update persistent colors for notes that have just passed the squiggle
-    /// This captures the time-averaged performance color when a note becomes inactive
+    /// Update coloring only when a note passes the fixed bar.
     private func updateNoteColorsForPassedNotes() {
         for timedNote in sheetMusic.timedNotes {
             let noteXPosition = calculateNoteXPosition(for: timedNote)
-            let hasPassedSquiggle = noteXPosition <= squiggleX
-            
-            // If note has passed squiggle but we don't have a color stored yet, calculate final color
-            if hasPassedSquiggle && noteColors[timedNote.id] == nil {
-                // Finalize performance tracking for this note
+            let hasPassedBar = noteXPosition <= squiggleX
+            if hasPassedBar && noteColors[timedNote.id] == nil {
                 notePerformanceData[timedNote.id]?.finish(at: scoreTime)
-                
-                // Use time-averaged performance color if available, otherwise use fallback
                 let colorToStore: Color
-                if let performanceTracker = notePerformanceData[timedNote.id],
-                   !performanceTracker.accuracySamples.isEmpty {
-                    colorToStore = performanceTracker.averagePerformanceColor
-                    print("🎨 Note \(timedNote.note.noteName) passed squiggle, using time-averaged color based on \(performanceTracker.accuracySamples.count) samples")
+                if let tracker = notePerformanceData[timedNote.id], !tracker.accuracySamples.isEmpty {
+                    colorToStore = tracker.averagePerformanceColor
                 } else {
-                    // Fallback: use current squiggle color if no performance data available
-                    colorToStore = squiggleColor == .gray ? .black : squiggleColor
-                    print("🎨 Note \(timedNote.note.noteName) passed squiggle, using fallback color (no performance data)")
+                    colorToStore = .black // fallback; could be neutral gray
                 }
-                
                 noteColors[timedNote.id] = colorToStore
             }
         }
