@@ -80,7 +80,8 @@ struct SheetMusicScrollerView: View {
     @State private var scrollOffset: CGFloat = 0
     @State private var scrollTimer: Timer?
     @StateObject private var pitchDetector = PitchDetector()
-    @State private var scoreTime: Double = 0  // Current time position in the score for tracking active notes
+    @State private var scoreTime: Double = 0  // Current wall-clock elapsed time for performance tracking
+    @State private var lastTimerTime: Date = Date()  // Track real time for delta calculations
     @State private var noteColors: [UUID: Color] = [:]  // Track persistent color for each note after it passes
     @State private var notePerformanceData: [UUID: NotePerformanceTracker] = [:]  // Track performance over time for each note
     
@@ -91,13 +92,17 @@ struct SheetMusicScrollerView: View {
         useRoundLineCaps: true
     )
     
-    private let scrollSpeed: CGFloat = 30 // pixels per second
-    private let gutterWidth: CGFloat = 80
-    private let pixelsPerSecond: CGFloat = 100  // Must match ScoreView's scaling
+    // Tempo and scroll speed controls - independent sliders
+    @State private var tempoBPM: Double = 72.0  // Default to sheet's tempo
+    @State private var scrollSpeedPxPerSec: Double = 30.0  // Visual scroll speed in pixels per second
     
-    /// Calculate the X position for a note based on its start time
+    private let gutterWidth: CGFloat = 80
+    
+    /// Calculate the X position for a note based on its start time (now in beats)
     func calculateNoteXPosition(for timedNote: TimedNote) -> CGFloat {
-        return CGFloat(timedNote.startTime) * pixelsPerSecond + gutterWidth + 20 - scrollOffset
+        // Compute pixelsPerBeat dynamically from scroll speed and tempo
+        let pixelsPerBeat = scrollSpeedPxPerSec * (60.0 / tempoBPM)
+        return CGFloat(timedNote.startTime * pixelsPerBeat) + gutterWidth + 20 - scrollOffset
     }
     
     /// Computes the note nearest to the left of the fixed vertical bar.
@@ -114,10 +119,12 @@ struct SheetMusicScrollerView: View {
     private var activeNotesByBar: Set<UUID> {
         if let n = activeNoteByBarPosition() { return [n.id] } else { return [] }
     }
-    private let squiggleX: CGFloat = 160   // Fixed x position of squiggle (moved right for better visibility)
+    private let squiggleX: CGFloat = 100   // Fixed x position of squiggle aligned with gutter (gutterWidth + leftMargin)
     
     init(sheetMusic: SheetMusic) {
         self.sheetMusic = sheetMusic
+        // Initialize tempo from sheet music
+        self._tempoBPM = State(initialValue: sheetMusic.musicContext.tempo)
     }
     
     /// Platform-specific background color
@@ -142,6 +149,9 @@ struct SheetMusicScrollerView: View {
             
             // Controls
             controlsView
+            
+            // Tempo and scroll speed controls
+            tempoScrollControlsView
             
             // Pitch detection info
             pitchInfoView
@@ -172,7 +182,7 @@ struct SheetMusicScrollerView: View {
                 .foregroundColor(.secondary)
             
             HStack {
-                Text("Tempo: \(Int(sheetMusic.musicContext.tempo)) BPM")
+                Text("Tempo: \(Int(tempoBPM)) BPM")
                 Text("•")
                 Text(sheetMusic.timeSignature)
                 Text("•")
@@ -216,17 +226,21 @@ struct SheetMusicScrollerView: View {
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
                 squiggleColor: squiggleColor,
-                noteColors: noteColors
+                noteColors: noteColors,
+                tempoBPM: tempoBPM,
+                scrollSpeedPxPerSec: scrollSpeedPxPerSec
             )
             .frame(height: 220)  // Increased to accommodate extended staff range
             
             // Squiggle tip anchored to the bar, vertical position tracks detected pitch
+            // Made invisible but logic preserved for crossing evaluations
             SquiggleView(
                 fixedX: squiggleX,
                 y: currentSquiggleYPosition,
                 color: squiggleColor,
                 drawingConfig: squiggleDrawingConfig
             )
+            .opacity(0)  // Hide the squiggle line but preserve logic
         }
         .frame(height: 220)  // Increased to match ScoreView height
         .clipped()
@@ -247,6 +261,60 @@ struct SheetMusicScrollerView: View {
             
             Spacer()
         }
+    }
+    
+    /// Tempo and scroll speed controls for independent adjustment
+    private var tempoScrollControlsView: some View {
+        VStack(spacing: 12) {
+            Text("Playback Controls")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            VStack(spacing: 8) {
+                // Tempo control
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Tempo: \(Int(tempoBPM)) BPM")
+                            .font(.caption)
+                        Spacer()
+                        Text("🎵 Musical timing - affects note spacing")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Slider(
+                        value: $tempoBPM,
+                        in: 30...240,
+                        step: 1
+                    ) {
+                        Text("Tempo")
+                    }
+                }
+                
+                // Scroll speed control
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Scroll Speed: \(Int(scrollSpeedPxPerSec)) px/s")
+                            .font(.caption)
+                        Spacer()
+                        Text("📜 Visual speed - affects staff movement")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Slider(
+                        value: $scrollSpeedPxPerSec,
+                        in: 10...300,
+                        step: 5
+                    ) {
+                        Text("Scroll Speed")
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color.primary.opacity(0.05))
+        .cornerRadius(8)
     }
     
     private var pitchInfoView: some View {
@@ -724,19 +792,23 @@ struct SheetMusicScrollerView: View {
     }
     
     private func startScrolling() {
+        lastTimerTime = Date()
         scrollTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { _ in
-            // Advance score time based on musical tempo
-            let secondsPerBeat = 60.0 / sheetMusic.musicContext.tempo
-            let timeAdvancementRate = secondsPerBeat * 0.02 // Advance score time based on tempo
-            scoreTime += timeAdvancementRate
+            let currentTime = Date()
+            let deltaTime = currentTime.timeIntervalSince(lastTimerTime)
+            lastTimerTime = currentTime
             
-            // Convert scoreTime to scroll position using time-based scaling
-            scrollOffset = CGFloat(scoreTime) * pixelsPerSecond
+            // Update scroll position using real delta time and scroll speed
+            scrollOffset += CGFloat(scrollSpeedPxPerSec * deltaTime)
             
-            // Optional: Reset score time if we've exceeded the total duration
-            if scoreTime > sheetMusic.totalDuration {
-                scoreTime = 0  // Loop back to beginning
+            // Update score time as wall-clock elapsed time for performance tracking
+            scoreTime += deltaTime
+            
+            // Optional: Reset if we've scrolled too far (based on content length)
+            let totalContentWidth = calculateTotalContentWidth()
+            if scrollOffset > totalContentWidth {
                 scrollOffset = 0
+                scoreTime = 0
             }
             
             // Track performance data for the currently active note
@@ -745,6 +817,16 @@ struct SheetMusicScrollerView: View {
             // Update persistent note colors for notes that have just passed the squiggle
             updateNoteColorsForPassedNotes()
         }
+    }
+    
+    /// Calculate total content width based on all notes
+    private func calculateTotalContentWidth() -> CGFloat {
+        guard let lastNote = sheetMusic.timedNotes.max(by: { $0.startTime < $1.startTime }) else {
+            return 1000  // Default width
+        }
+        
+        let pixelsPerBeat = scrollSpeedPxPerSec * (60.0 / tempoBPM)
+        return CGFloat(lastNote.startTime * pixelsPerBeat) + 200  // Add some padding
     }
     
     private func stopScrolling() {

@@ -4,7 +4,7 @@ import Foundation
 struct TimedNote: Identifiable, Codable {
     let id = UUID()
     let note: Note           // The immutable note data
-    let startTime: Double    // Time in seconds when note starts
+    let startTime: Double    // Start time in beats (quarter note = 1.0 beat)
     
     init(note: Note, startTime: Double) {
         self.note = note

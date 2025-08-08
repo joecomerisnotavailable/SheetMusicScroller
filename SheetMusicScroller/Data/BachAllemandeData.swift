@@ -60,12 +60,12 @@ class BachAllemandeData {
             Note.sixteenth("D5", a4Reference: a4Reference, keySignature: keySignature),
         ]
         
-        // Create timed notes with start times based on cumulative durations
-        var currentTime: Double = 0.0
+        // Create timed notes with start times in beats (quarter note = 1.0 beat)
+        var currentBeat: Double = 0.0
         let timedNotes: [TimedNote] = notes.map { note in
-            let timedNote = TimedNote(note: note, startTime: currentTime)
-            // Advance current time by this note's duration at 120 BPM
-            currentTime += note.noteValue.duration(at: 120.0)
+            let timedNote = TimedNote(note: note, startTime: currentBeat)
+            // Advance current beat by this note's duration in beats
+            currentBeat += note.noteValue.beats
             return timedNote
         }
         
