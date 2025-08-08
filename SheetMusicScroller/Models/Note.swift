@@ -78,9 +78,9 @@ extension Note {
 
 // MARK: - Semantic engraving helpers
 extension NoteDuration {
-    /// Eighth and shorter have stems in standard engraving
+    /// Quarter and shorter have stems in standard engraving
     var hasStem: Bool {
-        return beats <= 0.5
+        return beats <= 1.0
     }
     
     /// Number of beams for beamed notes
