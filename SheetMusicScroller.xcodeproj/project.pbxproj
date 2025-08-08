@@ -24,6 +24,7 @@
 		D8C5DF3D2E2EF14A001B70B4 /* AudioKitEX in Frameworks */ = {isa = PBXBuildFile; productRef = D8C5DF3C2E2EF14A001B70B4 /* AudioKitEX */; };
 		D8C5DF402E2EF154001B70B4 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8C5DF3F2E2EF154001B70B4 /* AudioKit */; };
 		D8C5DF432E2EF1C3001B70B4 /* SoundpipeAudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = D8C5DF422E2EF1C3001B70B4 /* SoundpipeAudioKit */; };
+		D8FCDDCA2E467FA300861DD5 /* TimeSignatureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8FCDDC92E467FA300861DD5 /* TimeSignatureView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +43,7 @@
 		3D00011D1234567890123456 /* PitchDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchDetector.swift; sourceTree = "<group>"; };
 		D813DB542E380A6D000EF278 /* MusicalSymbolImageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicalSymbolImageManager.swift; sourceTree = "<group>"; };
 		D813DB552E380A6D000EF278 /* StaffPositionMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaffPositionMapper.swift; sourceTree = "<group>"; };
+		D8FCDDC92E467FA300861DD5 /* TimeSignatureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeSignatureView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +116,7 @@
 				3D0001151234567890123456 /* NoteView.swift */,
 				3D0001171234567890123456 /* SquiggleView.swift */,
 				3D0001191234567890123456 /* ScoreView.swift */,
+				D8FCDDC92E467FA300861DD5 /* TimeSignatureView.swift */,
 				3D00011B1234567890123456 /* SheetMusicScrollerView.swift */,
 			);
 			path = Views;
@@ -155,7 +158,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastUpgradeCheck = 1640;
 				TargetAttributes = {
 					3D0000FB1234567890123456 = {
 						CreatedOnToolsVersion = 15.0;
@@ -202,6 +205,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D8FCDDCA2E467FA300861DD5 /* TimeSignatureView.swift in Sources */,
 				3D0001021234567890123456 /* ContentView.swift in Sources */,
 				3D0001101234567890123456 /* Note.swift in Sources */,
 				D813DB562E380A6D000EF278 /* MusicalSymbolImageManager.swift in Sources */,
@@ -254,7 +258,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = LHS3R52GQ4;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -319,7 +325,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = LHS3R52GQ4;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -349,8 +357,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"SheetMusicScroller/Preview Content\"";
-				DEVELOPMENT_TEAM = LHS3R52GQ4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Needed for pitch detection.";
@@ -380,8 +388,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"SheetMusicScroller/Preview Content\"";
-				DEVELOPMENT_TEAM = LHS3R52GQ4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Needed for pitch detection.";

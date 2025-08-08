@@ -74,7 +74,7 @@ class BachAllemandeData {
             composer: "J.S. Bach - Partita No. 2 in D minor, BWV 1004",
             keySignature: keySignature,
             clef: .treble,
-            tempo: 120,
+            tempo: 72.0,
             timeSignature: "4/4",
             timedNotes: timedNotes,
             a4Reference: a4Reference

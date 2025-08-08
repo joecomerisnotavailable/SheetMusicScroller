@@ -130,36 +130,4 @@ struct ScoreView: View {
             }
         }
     }
-    }
-}
-
-#Preview {
-    // Create sample sheet music using the new system
-    let context = MusicContext(keySignature: "D minor", clef: .treble, tempo: 120)
-    let sampleNotes = [
-        TimedNote(note: Note.quarter("C4"), startTime: 0),
-        TimedNote(note: Note.eighth("E4"), startTime: 0.5),
-        TimedNote(note: Note.sixteenth("G4"), startTime: 0.75),
-        TimedNote(note: Note.quarter("C5"), startTime: 1.0),
-        TimedNote(note: Note.eighth("E5"), startTime: 1.5),
-    ]
-    
-    let sampleMusic = SheetMusic(
-        title: "Sample",
-        composer: "Test",
-        musicContext: context,
-        timeSignature: "4/4",
-        timedNotes: sampleNotes
-    )
-    
-    ScoreView(
-        sheetMusic: sampleMusic,
-        activeNotes: Set([sampleNotes[0].id, sampleNotes[2].id]),
-        scrollOffset: 0,
-        squiggleX: 80,
-        squiggleColor: .red,
-        noteColors: [:]
-    )
-    .padding()
-    .background(Color.white)
 }
