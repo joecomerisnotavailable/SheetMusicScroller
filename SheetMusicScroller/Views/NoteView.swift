@@ -34,20 +34,26 @@ struct NoteView: View {
                 )
             }
             
-            // Note stem (for eighth and sixteenth notes)
-            if timedNote.note.noteValue.rawValue <= 0.25 {
+            // Note stem (for eighth and shorter notes)
+            if timedNote.note.noteValue.hasStem {
                 Rectangle()
                     .fill(noteColor)
                     .frame(width: 1.5, height: noteSize * 3)
                     .offset(x: noteSize * 0.4, y: stemDirection * noteSize * 1.5)
             }
             
-            // Beams for sixteenth notes
-            if timedNote.note.noteValue.rawValue <= 0.125 {
-                Rectangle()
-                    .fill(noteColor)
-                    .frame(width: noteSize * 0.6, height: 2)
-                    .offset(x: noteSize * 0.7, y: stemDirection * noteSize * 2.5)
+            // Beams for notes with beam count > 0
+            let beamCount = timedNote.note.noteValue.beamCount
+            if beamCount > 0 {
+                ForEach(0..<beamCount, id: \.self) { i in
+                    Rectangle()
+                        .fill(noteColor)
+                        .frame(width: noteSize * 0.6, height: 2)
+                        .offset(
+                            x: noteSize * 0.7, 
+                            y: stemDirection * noteSize * (2.1 + 0.5 * CGFloat(i))
+                        )
+                }
             }
             
             // Duration bars for longer notes (half notes and whole notes)

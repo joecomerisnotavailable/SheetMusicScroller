@@ -27,6 +27,21 @@ struct TimedNote: Identifiable, Codable {
     }
 }
 
+// MARK: - Timing helpers
+extension TimedNote {
+    /// Calculate the end time of this note
+    func endTime(in context: MusicContext) -> Double {
+        return startTime + duration(in: context)
+    }
+    
+    /// Half-open interval [start, end), with a small tolerance to avoid edge jitter
+    func contains(time: Double, in context: MusicContext, tolerance: Double = 1e-6) -> Bool {
+        let s = startTime - tolerance
+        let e = endTime(in: context) + tolerance
+        return s <= time && time < e
+    }
+}
+
 /// Represents a piece of sheet music with musical context and timed notes
 struct SheetMusic: Identifiable, Codable {
     let id = UUID()
@@ -52,17 +67,17 @@ struct SheetMusic: Identifiable, Codable {
     
     /// Total duration of the piece in seconds
     var totalDuration: Double {
-        return timedNotes.max(by: { 
-            $0.startTime + $0.duration(in: musicContext) < $1.startTime + $1.duration(in: musicContext) 
-        })?.startTime ?? 0
+        guard let last = timedNotes.max(by: { 
+            ($0.startTime + $0.duration(in: musicContext)) < ($1.startTime + $1.duration(in: musicContext)) 
+        }) else { 
+            return 0 
+        }
+        return last.startTime + last.duration(in: musicContext)
     }
     
     /// Get notes that should be active at a given time
     func notesAt(time: Double) -> [TimedNote] {
-        return timedNotes.filter { timedNote in
-            let noteDuration = timedNote.duration(in: musicContext)
-            return timedNote.startTime <= time && time <= timedNote.startTime + noteDuration
-        }
+        return timedNotes.filter { $0.contains(time: time, in: musicContext) }
     }
     
     /// Get all notes that start before or at a given time

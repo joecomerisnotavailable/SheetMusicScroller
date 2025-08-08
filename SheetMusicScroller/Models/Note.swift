@@ -75,3 +75,24 @@ extension Note {
         return Note(noteName: noteName, noteValue: .thirtySecond, a4Reference: a4Reference, keySignature: keySignature)
     }
 }
+
+// MARK: - Semantic engraving helpers
+extension NoteDuration {
+    /// Eighth and shorter have stems in standard engraving
+    var hasStem: Bool {
+        return beats <= 0.5
+    }
+    
+    /// Number of beams for beamed notes
+    var beamCount: Int {
+        if beats <= 0.125 {
+            return 3  // 32nd
+        } else if beats <= 0.25 {
+            return 2  // 16th
+        } else if beats <= 0.5 {
+            return 1  // 8th
+        } else {
+            return 0
+        }
+    }
+}
