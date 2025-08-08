@@ -226,7 +226,9 @@ struct SheetMusicScrollerView: View {
                 scrollOffset: scrollOffset,
                 squiggleX: squiggleX,
                 squiggleColor: squiggleColor,
-                noteColors: noteColors
+                noteColors: noteColors,
+                tempoBPM: tempoBPM,
+                scrollSpeedPxPerSec: scrollSpeedPxPerSec
             )
             .frame(height: 220)  // Increased to accommodate extended staff range
             

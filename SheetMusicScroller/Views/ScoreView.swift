@@ -10,15 +10,18 @@ struct ScoreView: View {
     let squiggleX: CGFloat        // X position of the squiggle for pass/fail detection
     let squiggleColor: Color      // Current squiggle tip color
     let noteColors: [UUID: Color] // Persistent colors for notes that have passed
-    let pixelsPerSecond: CGFloat = 100  // Scaling factor for time-to-pixel conversion
+    let tempoBPM: Double          // Current tempo for note spacing calculation
+    let scrollSpeedPxPerSec: Double // Current scroll speed for positioning
     
-    init(sheetMusic: SheetMusic, activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0, squiggleX: CGFloat = 80, squiggleColor: Color = .red, noteColors: [UUID: Color] = [:]) {
+    init(sheetMusic: SheetMusic, activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0, squiggleX: CGFloat = 80, squiggleColor: Color = .red, noteColors: [UUID: Color] = [:], tempoBPM: Double = 120.0, scrollSpeedPxPerSec: Double = 30.0) {
         self.sheetMusic = sheetMusic
         self.activeNotes = activeNotes
         self.scrollOffset = scrollOffset
         self.squiggleX = squiggleX
         self.squiggleColor = squiggleColor
         self.noteColors = noteColors
+        self.tempoBPM = tempoBPM
+        self.scrollSpeedPxPerSec = scrollSpeedPxPerSec
     }
     
     /// Parse time signature string (e.g., "4/4", "3/4") into numerator and denominator
@@ -30,9 +33,11 @@ struct ScoreView: View {
         return (4, 4)  // Default to 4/4 if parsing fails
     }
     
-    /// Calculate the X position for a note based on its start time and duration
+    /// Calculate the X position for a note based on its start time (in beats) and current tempo/scroll settings
     func calculateNoteXPosition(for timedNote: TimedNote) -> CGFloat {
-        return CGFloat(timedNote.startTime) * pixelsPerSecond + gutterWidth + 20 - scrollOffset
+        // Use same formula as SheetMusicScrollerView for consistency
+        let pixelsPerBeat = scrollSpeedPxPerSec * (60.0 / tempoBPM)
+        return CGFloat(timedNote.startTime * pixelsPerBeat) + gutterWidth + 20 - scrollOffset
     }
     
     var body: some View {
