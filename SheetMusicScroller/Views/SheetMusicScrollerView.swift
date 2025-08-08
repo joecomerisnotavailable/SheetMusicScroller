@@ -714,62 +714,6 @@ struct SheetMusicScrollerView: View {
                         blue: greenComponent * 0.0)
         }
     }
-        // If no pitch detected, show gray
-        guard pitchDetector.currentAmplitude > 0.01 && pitchDetector.currentFrequency > 0 else {
-            print("🎵 SquiggleColor: No pitch detected, showing gray")
-            return .gray
-        }
-        
-        // Get the currently active note as target
-        guard let activeNote = currentlyActiveNote else {
-            print("🎵 SquiggleColor: No active note found, showing gray")
-            return .gray
-        }
-        
-        // Get the current detected frequency and target frequency from active note
-        let currentFreq = pitchDetector.currentFrequency
-        let baseHz = sheetMusic.musicContext.a4Reference
-        let targetNoteName = activeNote.note.noteName
-        let targetFreq = StaffPositionMapper.noteNameToFrequency(targetNoteName, a4Reference: baseHz)
-        
-        print("🎵 SquiggleColor: Target note: \(targetNoteName), target freq: \(String(format: "%.1f", targetFreq))Hz, detected freq: \(String(format: "%.1f", currentFreq))Hz")
-        
-        // Calculate frequency difference
-        let freqDiff = currentFreq - targetFreq
-        
-        // Calculate semitone difference (12 semitones = octave, frequency doubles)
-        let semitoneDiff = 12.0 * log2(currentFreq / targetFreq)
-        
-        print("🎵 SquiggleColor: Semitone difference: \(String(format: "%.2f", semitoneDiff))")
-        
-        // If very close to target (within 0.1 semitones), show green
-        if abs(semitoneDiff) < 0.1 {
-            print("🎵 SquiggleColor: In tune - showing green")
-            return .green
-        }
-        
-        // Color interpolation based on distance from target
-        let maxSemitones: Double = 1.0  // Full color at 1 semitone distance
-        let normalizedDistance = min(abs(semitoneDiff) / maxSemitones, 1.0)
-        
-        if freqDiff < 0 {
-            // Below target frequency -> purple
-            let purpleIntensity = normalizedDistance
-            let greenComponent = max(0, 1.0 - purpleIntensity)
-            print("🎵 SquiggleColor: Below target - showing purple (intensity: \(String(format: "%.2f", purpleIntensity)))")
-            return Color(red: purpleIntensity * 0.5 + greenComponent * 0.0,
-                        green: greenComponent,
-                        blue: purpleIntensity * 0.8 + greenComponent * 0.5)
-        } else {
-            // Above target frequency -> red  
-            let redIntensity = normalizedDistance
-            let greenComponent = max(0, 1.0 - redIntensity)
-            print("🎵 SquiggleColor: Above target - showing red (intensity: \(String(format: "%.2f", redIntensity)))")
-            return Color(red: redIntensity + greenComponent * 0.0,
-                        green: greenComponent,
-                        blue: greenComponent * 0.0)
-        }
-    }
     
     private func togglePitchListening() {
         if pitchDetector.isListening {
