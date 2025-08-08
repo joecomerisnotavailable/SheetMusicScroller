@@ -12,6 +12,7 @@ struct ScoreView: View {
     let squiggleX: CGFloat        // X position of the squiggle for pass/fail detection
     let squiggleColor: Color      // Current squiggle tip color
     let noteColors: [UUID: Color] // Persistent colors for notes that have passed
+    let pixelsPerSecond: CGFloat = 100  // Scaling factor for time-to-pixel conversion
     
     init(sheetMusic: SheetMusic, activeNotes: Set<UUID> = Set(), scrollOffset: CGFloat = 0, squiggleX: CGFloat = 80, squiggleColor: Color = .red, noteColors: [UUID: Color] = [:]) {
         self.sheetMusic = sheetMusic
@@ -20,6 +21,20 @@ struct ScoreView: View {
         self.squiggleX = squiggleX
         self.squiggleColor = squiggleColor
         self.noteColors = noteColors
+    }
+    
+    /// Parse time signature string (e.g., "4/4", "3/4") into numerator and denominator
+    private func parseTimeSignature(_ timeSignature: String) -> (Int, Int) {
+        let parts = timeSignature.split(separator: "/")
+        if parts.count == 2, let numerator = Int(parts[0]), let denominator = Int(parts[1]) {
+            return (numerator, denominator)
+        }
+        return (4, 4)  // Default to 4/4 if parsing fails
+    }
+    
+    /// Calculate the X position for a note based on its start time and duration
+    private func calculateNoteXPosition(for timedNote: TimedNote) -> CGFloat {
+        return CGFloat(timedNote.startTime) * pixelsPerSecond + gutterWidth + 20 - scrollOffset
     }
     
     var body: some View {
@@ -69,41 +84,23 @@ struct ScoreView: View {
             }
             .frame(width: 40, height: staffHeight)
             
-            // Key signature display using positioning system
-            keySignatureView
+            // Time signature display
+            let (numerator, denominator) = parseTimeSignature(sheetMusic.timeSignature)
+            TimeSignatureView(numerator: numerator, denominator: denominator, staffHeight: staffHeight)
             
             // Visual separator line for the gutter
             Rectangle()
                 .fill(Color.gray.opacity(0.3))
                 .frame(width: 1, height: staffHeight + 40)
         }
-        .frame(width: gutterWidth)
+        .frame(width: gutterWidth, alignment: .leading)
         .background(Color.white.opacity(0.9))
-    }
-
-    
-    private var keySignatureView: some View {
-        ZStack {
-            // Key signature accidentals using image assets
-            let accidentals = KeySignatureAccidental.createDMinorAccidentals(for: sheetMusic.musicContext.clef)
-            ForEach(Array(accidentals.enumerated()), id: \.offset) { index, accidental in
-                let yPos = StaffPositionMapper.getYFromNoteAndKey(accidental.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight, totalFrameHeight: 220)
-                let position = CGPoint(x: 15, y: yPos)
-                
-                MusicalSymbolImageManager.accidentalImageView(
-                    for: accidental.symbol,
-                    targetHeight: 20,
-                    at: position
-                )
-            }
-        }
-        .frame(width: 30, height: staffHeight)
     }
     
     private var scrollingNotesView: some View {
         // Notes positioned on the staff - they scroll horizontally
         ForEach(Array(sheetMusic.timedNotes.enumerated()), id: \.element.id) { index, timedNote in
-            let xPosition = CGFloat(index) * noteSpacing + gutterWidth + 20 - scrollOffset
+            let xPosition = calculateNoteXPosition(for: timedNote)
             let yPosition = StaffPositionMapper.getYFromNoteAndKey(timedNote.note.noteName, keySignature: sheetMusic.musicContext.keySignature, clef: sheetMusic.musicContext.clef, staffHeight: staffHeight, totalFrameHeight: 220)
             let hasPassedSquiggle = xPosition <= squiggleX
             
